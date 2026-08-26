@@ -18,4 +18,5 @@ public record ApiResponse<T>(int code, String message, T data, LocalDateTime tim
   public static ApiResponse<Void> error(int code, String message) {
     return new ApiResponse<>(code, message, null, LocalDateTime.now());
   }
+
 }

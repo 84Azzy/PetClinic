@@ -31,27 +31,90 @@ public class PetServiceImpl implements PetService{
     }
 
     @Override
-    public List<Pet> mine() {
-        return List.of();
+    public List<Pet> mine(Long ownId) {
+        List<Pet> list = petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                .eq(Pet::getOwnerId,ownId)
+                .orderByAsc(Pet::getId));
+        return list;
     }
 
     @Override
     public Pet get(Long id) {
-        return null;
+        return petMapper.selectById(id);
     }
 
     @Override
-    public Pet create(PetRequest request) {
-        return null;
+    public Pet create(PetRequest r) {
+        Pet pet = new Pet();
+        pet.setOwnerId(r.ownerId());
+        pet.setTypeId(r.typeId());
+        pet.setName(r.name());
+        if(r.gender() != null){
+            pet.setGender(r.gender());
+        }
+        if(r.breed() != null){
+            pet.setBreed(r.breed());
+        }
+        if(r.birthDate() != null){
+            pet.setBirthDate(r.birthDate());
+        }
+        if(r.color() != null){
+            pet.setColor(r.color());
+        }
+        if(r.microchipNo() != null){
+            pet.setMicrochipNo(r.microchipNo());
+        }
+        if(r.allergies() != null){
+            pet.setAllergies(r.allergies());
+        }
+        if(r.photoUrl() != null){
+            pet.setPhotoUrl(r.photoUrl());
+        }
+        petMapper.insert(pet);
+        return pet;
     }
 
     @Override
-    public Pet update(Long id, PetRequest request) {
-        return null;
+    public Pet update(Long id, PetRequest r) {
+        Pet pet = petMapper.selectById(id);
+        if(r.ownerId() != null){
+            pet.setOwnerId(r.ownerId());
+        }
+        if(r.typeId() != null){
+            pet.setTypeId(r.typeId());
+        }
+        if(r.name() != null){
+            pet.setName(r.name());
+        }
+        if(r.gender() != null){
+            pet.setGender(r.gender());
+        }
+        if(r.breed() != null){
+            pet.setBreed(r.breed());
+        }
+        if(r.birthDate() != null){
+            pet.setBirthDate(r.birthDate());
+        }
+        if(r.color() != null){
+            pet.setColor(r.color());
+        }
+        if(r.microchipNo() != null){
+            pet.setMicrochipNo(r.microchipNo());
+        }
+        if(r.allergies() != null){
+            pet.setAllergies(r.allergies());
+        }
+        if(r.photoUrl() != null){
+            pet.setPhotoUrl(r.photoUrl());
+        }
+        petMapper.updateById(pet);
+        return pet;
     }
 
     @Override
     public void delete(Long id) {
-
+        Pet pet = petMapper.selectById(id);
+        pet.setStatus("UNACTIVE");
+        petMapper.updateById(pet);
     }
 }

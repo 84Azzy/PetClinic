@@ -4,40 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.zzy.petclinic.ai.*;
 import com.zzy.petclinic.common.FeatureNotImplementedException;
-import com.zzy.petclinic.pet.*;
 import com.zzy.petclinic.system.*;
 import com.zzy.petclinic.visit.*;
-import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 class ReservedContractTest {
-  @Test
-  void petCreateIs501() {
-    var e =
-        assertThrows(
-            FeatureNotImplementedException.class,
-            () ->
-                new PetController()
-                    .create(
-                        new PetRequest(
-                            1L,
-                            1L,
-                            "糯米",
-                            "FEMALE",
-                            "英短",
-                            LocalDate.now().minusYears(1),
-                            null,
-                            null,
-                            null,
-                            null)));
-    assertEquals(501, e.getStatus().value());
-  }
-
-  @Test
-  void petListIs501() {
-    assertThrows(FeatureNotImplementedException.class, () -> new PetController().mine());
-  }
-
   @Test
   void visitCreateIs501() {
     assertThrows(

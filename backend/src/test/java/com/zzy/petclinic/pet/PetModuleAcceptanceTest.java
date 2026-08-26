@@ -1,0 +1,267 @@
+package com.zzy.petclinic.pet;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zzy.petclinic.authentication.AuthenticatedUser;
+import com.zzy.petclinic.authentication.SysUser;
+import com.zzy.petclinic.authorization.UserAuthorities;
+import com.zzy.petclinic.common.BusinessException;
+import com.zzy.petclinic.common.PageQuery;
+import com.zzy.petclinic.owner.OwnerService;
+import java.lang.reflect.Method;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.bind.annotation.GetMapping;
+
+/** Pet 模块业务验收；每个失败用例都对应一个待完成的契约。 */
+class PetModuleAcceptanceTest {
+  private PetMapper mapper;
+  private PetServiceImpl service;
+
+  @BeforeEach
+  void setUp() {
+    mapper = mock(PetMapper.class);
+    service = new PetServiceImpl(mapper);
+    SecurityContextHolder.clearContext();
+  }
+
+  @AfterEach
+  void tearDown() {
+    SecurityContextHolder.clearContext();
+  }
+
+  @Test
+  void createReturnsAnActivePet() {
+    Pet pet = service.create(minimalRequest());
+
+    assertEquals("ACTIVE", pet.getStatus(), "新增宠物应在返回前显式初始化为 ACTIVE");
+  }
+
+  @Test
+  void createEndpointReturnsCreatedResponse() {
+    PetController controller = new PetController();
+    PetService petService = mock(PetService.class);
+    ReflectionTestUtils.setField(controller, "petService", petService);
+    ReflectionTestUtils.setField(controller, "ownerService", mock(OwnerService.class));
+    Pet created = new Pet();
+    when(petService.create(minimalRequest())).thenReturn(created);
+
+    assertEquals(
+        201,
+        controller.create(minimalRequest()).code(),
+        "POST /api/pets 应使用 ApiResponse.created 返回 201 创建语义");
+  }
+
+  @Test
+  void defaultPageExcludesInactivePets() {
+    when(mapper.selectPage(any(Page.class), any(Wrapper.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.page(new PageQuery(1L, 10L, null, null), null);
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Wrapper<Pet>> captor = ArgumentCaptor.forClass(Wrapper.class);
+    verify(mapper).selectPage(any(Page.class), captor.capture());
+    LambdaQueryWrapper<Pet> wrapper = (LambdaQueryWrapper<Pet>) captor.getValue();
+    assertTrue(
+        wrapper.getSqlSegment().contains("status")
+            && wrapper.getParamNameValuePairs().containsValue("ACTIVE"),
+        "默认分页必须加上 status = ACTIVE，否则已停用宠物仍会出现");
+  }
+
+  @Test
+  void requestedStatusIsAppliedToPage() {
+    when(mapper.selectPage(any(Page.class), any(Wrapper.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.page(new PageQuery(1L, 10L, null, "INACTIVE"), null);
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Wrapper<Pet>> captor = ArgumentCaptor.forClass(Wrapper.class);
+    verify(mapper).selectPage(any(Page.class), captor.capture());
+    LambdaQueryWrapper<Pet> wrapper = (LambdaQueryWrapper<Pet>) captor.getValue();
+    assertTrue(
+        wrapper.getSqlSegment().contains("status")
+            && wrapper.getParamNameValuePairs().containsValue("INACTIVE"),
+        "PageQuery.status 必须参与分页查询，否则状态筛选参数无效");
+  }
+
+  @Test
+  void missingPetReturns404() {
+    when(mapper.selectById(404L)).thenReturn(null);
+
+    BusinessException exception =
+        assertThrows(
+            BusinessException.class,
+            () -> service.get(404L),
+            "查询不存在的宠物应抛出 BusinessException(404)");
+    assertEquals(404, exception.getStatus().value());
+  }
+
+  @Test
+  void updatingMissingPetReturns404() {
+    when(mapper.selectById(404L)).thenReturn(null);
+
+    BusinessException exception =
+        assertThrows(
+            BusinessException.class,
+            () -> service.update(404L, minimalRequest()),
+            "修改不存在的宠物应抛出 BusinessException(404)，不能出现空指针");
+    assertEquals(404, exception.getStatus().value());
+  }
+
+  @Test
+  void deletingMissingPetReturns404() {
+    when(mapper.selectById(404L)).thenReturn(null);
+
+    BusinessException exception =
+        assertThrows(
+            BusinessException.class,
+            () -> service.delete(404L),
+            "停用不存在的宠物应抛出 BusinessException(404)，不能出现空指针");
+    assertEquals(404, exception.getStatus().value());
+  }
+
+  @Test
+  void deletingPetUsesTheSchemaStatusValueInactive() {
+    Pet pet = new Pet();
+    pet.setId(8L);
+    pet.setStatus("ACTIVE");
+    when(mapper.selectById(8L)).thenReturn(pet);
+
+    service.delete(8L);
+
+    assertEquals("INACTIVE", pet.getStatus(), "停用状态应为 INACTIVE，不是 UNACTIVE");
+  }
+
+  @Test
+  void ownerCannotReadAnotherOwnersPet() {
+    authenticateOwner(3L);
+    Pet foreignPet = foreignPet();
+    when(mapper.selectById(8L)).thenReturn(foreignPet);
+    when(mapper.selectMine(3L)).thenReturn(List.of());
+
+    assertThrows(
+        AccessDeniedException.class,
+        () -> service.get(8L),
+        "OWNER 读取其他宠主的宠物必须返回 403，归属校验不能只放在 page Controller");
+  }
+
+  @Test
+  void ownerCannotUpdateAnotherOwnersPet() {
+    authenticateOwner(3L);
+    Pet foreignPet = foreignPet();
+    when(mapper.selectById(8L)).thenReturn(foreignPet);
+    when(mapper.selectMine(3L)).thenReturn(List.of());
+
+    assertThrows(
+        AccessDeniedException.class,
+        () -> service.update(8L, minimalRequest()),
+        "OWNER 修改其他宠主的宠物必须返回 403，应在 Service 校验原资源归属");
+  }
+
+  @Test
+  void ownerCannotDeleteAnotherOwnersPet() {
+    authenticateOwner(3L);
+    Pet foreignPet = foreignPet();
+    when(mapper.selectById(8L)).thenReturn(foreignPet);
+    when(mapper.selectMine(3L)).thenReturn(List.of());
+
+    assertThrows(
+        AccessDeniedException.class,
+        () -> service.delete(8L),
+        "OWNER 停用其他宠主的宠物必须返回 403，不能直接按 id 更新");
+  }
+
+  @Test
+  void mineUsesMapperQueryBoundToCurrentUserId() {
+    Pet pet = new Pet();
+    when(mapper.selectMine(3L)).thenReturn(List.of(pet));
+
+    List<Pet> result = service.mine(3L);
+
+    assertEquals(
+        List.of(pet),
+        result,
+        "mine 应调用 PetMapper.selectMine(userId) 走 owner.user_id 归属查询");
+    verify(mapper).selectMine(3L);
+  }
+
+  @Test
+  void mineEndpointDoesNotAcceptAnOwnerIdFromTheClient() throws Exception {
+    Method method =
+        Arrays.stream(PetController.class.getDeclaredMethods())
+            .filter(candidate -> candidate.getName().equals("mine"))
+            .findFirst()
+            .orElseThrow();
+    GetMapping mapping = method.getAnnotation(GetMapping.class);
+
+    assertArrayEquals(
+        new String[] {"/mine"},
+        mapping.value(),
+        "“我的宠物”应是 /api/pets/mine，不应让客户端提供 ownerId");
+    assertFalse(
+        Arrays.stream(method.getParameters())
+            .anyMatch(parameter -> parameter.getType().equals(Long.class)),
+        "mine 不应接收客户端传入的 ownerId");
+  }
+
+  private static PetRequest minimalRequest() {
+    return new PetRequest(
+        1L,
+        1L,
+        "糯米",
+        "FEMALE",
+        "英短",
+        LocalDate.of(2022, 4, 12),
+        null,
+        null,
+        null,
+        null);
+  }
+
+  private static Pet foreignPet() {
+    Pet pet = new Pet();
+    pet.setId(8L);
+    pet.setOwnerId(2L);
+    pet.setStatus("ACTIVE");
+    return pet;
+  }
+
+  private static void authenticateOwner(Long userId) {
+    SysUser entity = new SysUser();
+    entity.setId(userId);
+    entity.setUsername("owner-" + userId);
+    entity.setPasswordHash("password");
+    entity.setAccountType("OWNER");
+    entity.setStatus("ACTIVE");
+    AuthenticatedUser principal =
+        new AuthenticatedUser(
+            entity, new UserAuthorities(Set.of("OWNER"), Set.of("pet:manage")));
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                principal, null, principal.getAuthorities()));
+  }
+}
