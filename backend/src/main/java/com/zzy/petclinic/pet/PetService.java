@@ -5,9 +5,9 @@ import com.zzy.petclinic.common.*;
 public interface PetService {
   PageResponse<Pet> page(PageQuery query, Long ownerId);
 
-  java.util.List<Pet> mine(Long ownId);
+  java.util.List<Pet> mine(Long userId);
 
-  Pet get(Long id);
+  Pet get(Long id,String accountType,Long ownId);
 
   Pet create(PetRequest request);
 

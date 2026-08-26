@@ -2,10 +2,13 @@ package com.zzy.petclinic.pet;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zzy.petclinic.common.BusinessException;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.owner.Owner;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -26,21 +29,36 @@ public class PetServiceImpl implements PetService{
         if(query.keyword()!=null){
             wrapper.like(Pet::getName,query.keyword());
         }
+        //状态不传默认为活跃
+        String status = query.status()==null?"ACTIVE": query.status();
+        wrapper.eq(Pet::getStatus,status);
         Page<Pet> list = petMapper.selectPage(page,wrapper);
         return PageResponse.of(list);
     }
 
     @Override
-    public List<Pet> mine(Long ownId) {
-        List<Pet> list = petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                .eq(Pet::getOwnerId,ownId)
-                .orderByAsc(Pet::getId));
-        return list;
+    public List<Pet> mine(Long userId) {
+        return petMapper.selectMine(userId);
     }
 
     @Override
-    public Pet get(Long id) {
-        return petMapper.selectById(id);
+    public Pet get(Long id,String accountType,Long ownId) {
+        Pet pet = petMapper.selectById(id);
+        //查询不存在的宠物返回 404
+        if(pet==null){
+            throw new BusinessException(HttpStatus.NOT_FOUND,"宠物不存在");
+        }
+        if("ADMIN".equals(accountType)){
+            return pet;
+        }
+        if("OWNER".equals(accountType)){
+            Long currentOwnerId = pet.getOwnerId();
+            if(!currentOwnerId.equals(ownId)){
+                throw new AccessDeniedException("不能查询其他宠物主人的宠物");
+            }
+            return pet;
+        }
+        throw new AccessDeniedException("当前账号类型无权查询宠物");
     }
 
     @Override
@@ -49,6 +67,8 @@ public class PetServiceImpl implements PetService{
         pet.setOwnerId(r.ownerId());
         pet.setTypeId(r.typeId());
         pet.setName(r.name());
+        //新增状态初始化为ACTIVE
+        pet.setStatus("ACTIVE");
         if(r.gender() != null){
             pet.setGender(r.gender());
         }
@@ -77,6 +97,10 @@ public class PetServiceImpl implements PetService{
     @Override
     public Pet update(Long id, PetRequest r) {
         Pet pet = petMapper.selectById(id);
+        //更新不存在的宠物返回 404
+        if(pet==null){
+            throw new BusinessException(HttpStatus.NOT_FOUND,"宠物不存在");
+        }
         if(r.ownerId() != null){
             pet.setOwnerId(r.ownerId());
         }
@@ -114,7 +138,11 @@ public class PetServiceImpl implements PetService{
     @Override
     public void delete(Long id) {
         Pet pet = petMapper.selectById(id);
-        pet.setStatus("UNACTIVE");
+        //停用不存在的宠物返回 404
+        if(pet==null){
+            throw new BusinessException(HttpStatus.NOT_FOUND,"宠物不存在");
+        }
+        pet.setStatus("INACTIVE");
         petMapper.updateById(pet);
     }
 }
