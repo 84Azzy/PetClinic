@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.zzy.petclinic.ai.*;
 import com.zzy.petclinic.common.FeatureNotImplementedException;
 import com.zzy.petclinic.pet.*;
-import com.zzy.petclinic.rbac.*;
+import com.zzy.petclinic.system.*;
 import com.zzy.petclinic.visit.*;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;

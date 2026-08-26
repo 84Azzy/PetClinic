@@ -1,6 +1,6 @@
 package com.zzy.petclinic.audit;
 
-import com.zzy.petclinic.auth.AccountPrincipal;
+import com.zzy.petclinic.authentication.AuthenticatedUser;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -39,9 +39,9 @@ public class OperationLogAspect {
             SecurityContextHolder.getContext().getAuthentication() == null
                 ? null
                 : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof AccountPrincipal a) {
-          x.setUserId(a.id());
-          x.setUsername(a.username());
+        if (principal instanceof AuthenticatedUser user) {
+          x.setUserId(user.getId());
+          x.setUsername(user.getUsername());
         }
         x.setModule(p.getSignature().getDeclaringType().getSimpleName());
         x.setOperation(p.getSignature().getName());
