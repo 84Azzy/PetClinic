@@ -18,11 +18,13 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zzy.petclinic.authentication.AuthenticatedUser;
+import com.zzy.petclinic.authentication.CurrentUser;
 import com.zzy.petclinic.authentication.SysUser;
 import com.zzy.petclinic.authorization.UserAuthorities;
 import com.zzy.petclinic.common.BusinessException;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.owner.OwnerService;
+import com.zzy.petclinic.owner.Owner;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -43,6 +45,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 /** Pet 模块业务验收；每个失败用例都对应一个待完成的契约。 */
 class PetModuleAcceptanceTest {
   private PetMapper mapper;
+  private CurrentUser currentUser;
+  private OwnerService ownerService;
   private PetServiceImpl service;
 
   @BeforeEach
@@ -50,7 +54,9 @@ class PetModuleAcceptanceTest {
     TableInfoHelper.initTableInfo(
         new MapperBuilderAssistant(new MybatisConfiguration(), "pet-test"), Pet.class);
     mapper = mock(PetMapper.class);
-    service = new PetServiceImpl(mapper);
+    currentUser = mock(CurrentUser.class);
+    ownerService = mock(OwnerService.class);
+    service = new PetServiceImpl(mapper, currentUser, ownerService);
     SecurityContextHolder.clearContext();
   }
 
@@ -88,11 +94,11 @@ class PetModuleAcceptanceTest {
     ReflectionTestUtils.setField(controller, "petService", petService);
     ReflectionTestUtils.setField(controller, "ownerService", mock(OwnerService.class));
     Pet expected = new Pet();
-    when(petService.get(8L, "ADMIN", null)).thenReturn(expected);
+    when(petService.get(8L)).thenReturn(expected);
 
     Pet actual =
         assertDoesNotThrow(
-                () -> controller.get(8L, authenticatedUser(1L, "ADMIN")),
+                () -> controller.get(8L),
                 "ADMIN 查到宠物后 Controller 应立即 return，不能继续落入 403 分支")
             .data();
     assertSame(expected, actual);
@@ -139,7 +145,7 @@ class PetModuleAcceptanceTest {
     BusinessException exception =
         assertThrows(
             BusinessException.class,
-            () -> service.get(404L, "ADMIN", null),
+            () -> service.get(404L),
             "查询不存在的宠物应抛出 BusinessException(404)");
     assertEquals(404, exception.getStatus().value());
   }
@@ -184,10 +190,14 @@ class PetModuleAcceptanceTest {
   void ownerCannotReadAnotherOwnersPet() {
     Pet foreignPet = foreignPet();
     when(mapper.selectById(8L)).thenReturn(foreignPet);
+    when(currentUser.require()).thenReturn(authenticatedUser(3L, "OWNER"));
+    Owner owner = new Owner();
+    owner.setId(1L);
+    when(ownerService.mine()).thenReturn(owner);
 
     assertThrows(
         AccessDeniedException.class,
-        () -> service.get(8L, "OWNER", 1L),
+        () -> service.get(8L),
         "OWNER 读取其他宠主的宠物必须返回 403");
   }
 

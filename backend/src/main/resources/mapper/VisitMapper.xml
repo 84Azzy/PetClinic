@@ -1,22 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zzy.petclinic.visit.VisitMapper">
-  <!-- TODO 学习者实现：requestId 幂等查询、我的预约、AVAILABLE→BOOKED 条件更新、取消释放时段 -->
   <select id="selectMine" resultType="com.zzy.petclinic.visit.Visit">
-    select *
+    <!--
+      原代码：
+      select *
+      from visit v
+      where created_by = #{userId}
+      order by v.id asc
+    -->
+    select v.*
     from visit v
-    where created_by = #{userId}
-    order by v.id asc
+    where v.created_by = #{userId}
+    order by v.id desc
   </select>
 
   <select id="selectByRequestId" resultType="com.zzy.petclinic.visit.Visit">
-    select *
+    <!--
+      原代码：
+      select *
+      from visit v
+      where request_id = #{requestId}
+    -->
+    select v.*
     from visit v
-    where request_id = #{requestId}
+    where v.request_id = #{requestId}
   </select>
-  <update id="releaseSlot" >
+
+  <!-- 原代码中只有 claimSlot 的 Mapper 方法声明，VisitMapper.xml 中还没有对应 SQL。 -->
+  <!-- 把“判断可用”和“改成已预约”放在同一条 SQL 中，避免并发请求同时抢到一个时段。 -->
+  <update id="claimSlot">
     update vet_schedule_slot
-    set status='AVAILABLE'
-    where id=#{slotId}
+    set status = 'BOOKED', updated_at = CURRENT_TIMESTAMP
+    where id = #{slotId}
+      and status = 'AVAILABLE'
+  </update>
+
+  <update id="releaseSlot">
+    <!--
+      原代码：
+      update vet_schedule_slot
+      set status='AVAILABLE'
+      where id=#{slotId}
+    -->
+    update vet_schedule_slot
+    set status = 'AVAILABLE', updated_at = CURRENT_TIMESTAMP
+    where id = #{slotId}
+      and status = 'BOOKED'
   </update>
 </mapper>

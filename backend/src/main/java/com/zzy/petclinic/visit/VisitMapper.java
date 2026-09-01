@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 /**
  * 预约模块的数据访问接口。
  *
- * <p>{@link BaseMapper} 已提供按主键查询、插入和更新等通用方法；这里的方法需要在 {@code mapper/VisitMapper.xml} 中补充 SQL。
+ * <p>{@link BaseMapper} 已提供按主键查询、插入和更新等通用方法；这里的自定义方法由 {@code mapper/VisitMapper.xml} 提供 SQL。
  */
 public interface VisitMapper extends BaseMapper<Visit> {
   /**
@@ -18,7 +18,8 @@ public interface VisitMapper extends BaseMapper<Visit> {
    * @param requestId 客户端生成的幂等键
    * @return 已存在的预约；不存在时返回 {@code null}
    */
-  Visit selectByRequestId(String requestId);
+  /* 原代码：Visit selectByRequestId(String requestId); */
+  Visit selectByRequestId(@Param("requestId") String requestId);
 
   /**
    * 查询指定用户创建的全部预约。
@@ -28,7 +29,8 @@ public interface VisitMapper extends BaseMapper<Visit> {
    * @param userId 当前认证用户编号，不能从请求参数中获取
    * @return 该用户的预约列表；没有记录时返回空列表
    */
-  List<Visit> selectMine(@Param("userId")Long userId);
+  /* 原代码：List<Visit> selectMine(@Param("userId")Long userId); */
+  List<Visit> selectMine(@Param("userId") Long userId);
 
   /**
    * 原子抢占一个仍然可用的排班时段。

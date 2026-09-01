@@ -5,7 +5,7 @@ import com.zzy.petclinic.common.*;
 /**
  * 预约业务契约。
  *
- * <p>需要新建一个带 {@code @Service} 的实现类。权限、资源归属、幂等和状态流转都应在实现类中校验，Controller 只负责转发请求。
+ * <p>由 {@link VisitServiceImpl} 实现。权限、资源归属、幂等和状态流转都在实现类中校验，Controller 只负责转发请求。
  */
 public interface VisitService {
   /**
