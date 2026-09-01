@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,6 +19,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/visits")
 public class VisitController {
+
+  @Autowired
+  private VisitService visitService;
   /**
    * 创建预约。
    *
@@ -29,7 +34,7 @@ public class VisitController {
     // TODO 1. 给 Controller 注入 VisitService。
     // TODO 2. 调用 visitService.create(r)，不要在 Controller 中编写事务和抢占时段逻辑。
     // TODO 3. 使用 ApiResponse.created(...) 包装 Service 返回的预约。
-    throw todo();
+   return ApiResponse.created(visitService.create(r));
   }
 
   /**
@@ -47,7 +52,7 @@ public class VisitController {
       @RequestParam(required = false) Long vetId) {
     // TODO 调用 visitService.page(q, petId, vetId)，再用 ApiResponse.ok(...) 包装结果。
     // 用户只能看到自己数据的限制应由 Service 保证，不能依赖前端传参。
-    throw todo();
+    return ApiResponse.ok(visitService.page(q,petId,vetId));
   }
 
   /**
@@ -59,7 +64,7 @@ public class VisitController {
   public ApiResponse<List<Visit>> mine() {
     // TODO 调用无需 userId 参数的 visitService.mine()，再用 ApiResponse.ok(...) 包装结果。
     // Service 会从认证上下文取得当前用户，Controller 不要接收客户端传入的 userId。
-    throw todo();
+    return ApiResponse.ok(visitService.mine());
   }
 
   /**
@@ -72,7 +77,7 @@ public class VisitController {
   public ApiResponse<Visit> get(@PathVariable Long id) {
     // TODO 调用 visitService.get(id)，再用 ApiResponse.ok(...) 包装结果。
     // 预约是否存在、当前用户能否查看，由 Service 统一判断。
-    throw todo();
+    return ApiResponse.ok(visitService.get(id));
   }
 
   /**
@@ -88,7 +93,7 @@ public class VisitController {
       @PathVariable Long id, @Valid @RequestBody CancelVisitRequest r) {
     // TODO 调用 visitService.cancel(id, r)，再用 ApiResponse.ok(...) 包装结果。
     // 更新预约和释放时段必须在 Service 的同一事务中完成，Controller 不参与事务细节。
-    throw todo();
+    return ApiResponse.ok(visitService.cancel(id,r));
   }
 
   /**
@@ -100,11 +105,7 @@ public class VisitController {
   @PostMapping("/{id}/complete")
   public ApiResponse<Visit> complete(@PathVariable Long id) {
     // TODO 先为该接口配置员工/管理员权限，再调用 visitService.complete(id)，最后用 ApiResponse.ok(...) 包装结果。
-    throw todo();
+    return ApiResponse.ok(visitService.complete(id));
   }
-
-  /** 生成预留功能尚未实现时的统一异常；所有接口接通 Service 后即可删除。 */
-  private FeatureNotImplementedException todo() {
-    return new FeatureNotImplementedException("Visit 预约事务纵向链路");
-  }
+  
 }
