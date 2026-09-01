@@ -71,21 +71,8 @@ public class PetController {
 
   @Operation(summary = "查询宠物详情")
   @GetMapping("/{id}")
-  public ApiResponse<Pet> get(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser user) {
-    if(user==null || user.getId()==null){
-      throw new AuthenticationCredentialsNotFoundException("请先登录或登录状态已失效");
-    }
-    String accountType = user.getAccountType();
-
-    if ("ADMIN".equals(accountType) || "STAFF".equals(accountType)){
-      return ApiResponse.ok(petService.get(id,"ADMIN",null));
-    }
-    if("OWNER".equals(accountType)){
-      Owner owner = ownerService.mine();
-      Long ownerId = owner.getId();
-      return ApiResponse.ok(petService.get(id,"OWNER",ownerId));
-    }
-    throw new AccessDeniedException("当前账号类型无权查询宠物");
+  public ApiResponse<Pet> get(@PathVariable Long id) {
+    return ApiResponse.ok(petService.get(id));
   }
 
   @Operation(summary = "修改宠物")

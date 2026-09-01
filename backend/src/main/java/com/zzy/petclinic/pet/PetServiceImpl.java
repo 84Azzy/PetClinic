@@ -2,10 +2,13 @@ package com.zzy.petclinic.pet;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zzy.petclinic.authentication.AuthenticatedUser;
+import com.zzy.petclinic.authentication.CurrentUser;
 import com.zzy.petclinic.common.BusinessException;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.owner.Owner;
+import com.zzy.petclinic.owner.OwnerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -18,6 +21,8 @@ import java.util.List;
 public class PetServiceImpl implements PetService{
 
     private final PetMapper petMapper;
+    private final CurrentUser currentUser;
+    private final OwnerService ownerService;
 
     @Override
     public PageResponse<Pet> page(PageQuery query, Long ownerId) {
@@ -42,12 +47,16 @@ public class PetServiceImpl implements PetService{
     }
 
     @Override
-    public Pet get(Long id,String accountType,Long ownId) {
+    public Pet get(Long id) {
         Pet pet = petMapper.selectById(id);
         //查询不存在的宠物返回 404
         if(pet==null){
             throw new BusinessException(HttpStatus.NOT_FOUND,"宠物不存在");
         }
+        AuthenticatedUser user = currentUser.require();
+        String accountType = user.getAccountType();
+        Owner own = ownerService.mine();
+        Long ownId = own.getId();
         if("ADMIN".equals(accountType)){
             return pet;
         }

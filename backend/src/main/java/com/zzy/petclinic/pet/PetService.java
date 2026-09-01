@@ -7,7 +7,7 @@ public interface PetService {
 
   java.util.List<Pet> mine(Long userId);
 
-  Pet get(Long id,String accountType,Long ownId);
+  Pet get(Long id);
 
   Pet create(PetRequest request);
 

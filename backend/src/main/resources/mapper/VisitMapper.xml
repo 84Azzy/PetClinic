@@ -2,4 +2,21 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zzy.petclinic.visit.VisitMapper">
   <!-- TODO 学习者实现：requestId 幂等查询、我的预约、AVAILABLE→BOOKED 条件更新、取消释放时段 -->
+  <select id="selectMine" resultType="com.zzy.petclinic.visit.Visit">
+    select *
+    from visit v
+    where created_by = #{userId}
+    order by v.id asc
+  </select>
+
+  <select id="selectByRequestId" resultType="com.zzy.petclinic.visit.Visit">
+    select *
+    from visit v
+    where request_id = #{requestId}
+  </select>
+  <update id="releaseSlot" >
+    update vet_schedule_slot
+    set status='AVAILABLE'
+    where id=#{slotId}
+  </update>
 </mapper>
