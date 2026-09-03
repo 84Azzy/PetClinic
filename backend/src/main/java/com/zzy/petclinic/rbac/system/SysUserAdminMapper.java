@@ -1,5 +1,6 @@
 package com.zzy.petclinic.rbac.system;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zzy.petclinic.rbac.authentication.SysUser;
 import java.util.List;
 
@@ -10,7 +11,7 @@ import java.util.List;
  * 而开启 JDBC {@code allowMultiQueries}，更推荐把删除旧关系和批量插入拆成两个 Mapper 方法。
  */
 @org.apache.ibatis.annotations.Mapper
-public interface SysUserAdminMapper {
+public interface SysUserAdminMapper extends BaseMapper<SysUser> {
   /**
    * 查询一页用户。
    *
@@ -28,5 +29,6 @@ public interface SysUserAdminMapper {
    * <p>实现前建议把此方法拆成 {@code deleteRolesByUserId(userId)} 与批量 {@code insertUserRoles(userId, roleIds)}，再由 Service 的事务依次
    * 调用。roleIds 为空时只删除旧关系，不生成空的 IN 或 VALUES 语句。
    */
-  void replaceRoles(Long userId, List<Long> roleIds);
+  void deleteRolesByUserId(Long userId);
+  void insertUserRoles(Long userId,List<Long>roleIds);
 }

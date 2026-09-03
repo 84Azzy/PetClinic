@@ -13,4 +13,55 @@
     TODO replaceRoles：不要直接在一个 XML 映射中拼接“DELETE; INSERT”多语句。先把 Java 方法拆成删除和批量插入两个方法，
     由标注 @Transactional 的 Service 依次调用；插入部分用 foreach 生成多行 VALUES，空 roleIds 时跳过插入。
   -->
+  <select id="selectPageUsers" resultType="com.zzy.petclinic.rbac.authentication.SysUser">
+    select id, username, display_name, phone, email, account_type, status, token_type
+    from sys_user
+    where
+    <if test="keyword != null and keyword != ''">
+      (
+        username like concat('%',#{keyword},'%')
+        or display_name like concat('%',#{keyword},'%')
+        or phone like concat('%',#{keyword},'%')
+        or email like concat('%',#{keyword},'%')
+      )
+    </if>
+    <if test="status != null">
+      and status=#{status}
+    </if>
+    order by id desc
+    limit #{offset}, #{size}
+  </select>
+
+  <select id="countUsers">
+    select count(*)
+    from sys_user
+    where
+    <if test="keyword != null and keyword != ''">
+      (
+      username like concat('%',#{keyword},'%')
+      or display_name like concat('%',#{keyword},'%')
+      or phone like concat('%',#{keyword},'%')
+      or email like concat('%',#{keyword},'%')
+      )
+    </if>
+    <if test="status != null">
+      and status=#{status}
+    </if>
+  </select>
+
+  <delete id="deleteRolesByUserId">
+    delete from sys_user_role ur
+    where ur.user_id=#{userId}
+  </delete>
+
+  <insert id="insertUserRoles">
+    insert into sys_user_role(user_id,role_id)
+    values
+    <foreach collection="ids" item="item" separator=",">
+      (
+        #{userId},
+        #{item}
+      )
+    </foreach>
+  </insert>
 </mapper>
