@@ -5,7 +5,9 @@ import com.zzy.petclinic.common.*;
 public interface PetService {
   PageResponse<Pet> page(PageQuery query, Long ownerId);
 
-  java.util.List<Pet> mine(Long userId);
+  // 不恰当：调用者可以传入任意 userId，破坏“我的宠物”边界。
+  // java.util.List<Pet> mine(Long userId);
+  java.util.List<Pet> mine();
 
   Pet get(Long id);
 

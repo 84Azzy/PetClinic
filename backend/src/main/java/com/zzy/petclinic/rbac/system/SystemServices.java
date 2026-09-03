@@ -3,6 +3,7 @@ package com.zzy.petclinic.rbac.system;
 import com.zzy.petclinic.rbac.authentication.SysUser;
 import com.zzy.petclinic.common.*;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * system 模块的业务契约集合。
@@ -15,6 +16,7 @@ public final class SystemServices {
   private SystemServices() {}
 
   /** 用户账号管理业务；任何返回给前端的对象都不得包含 {@code passwordHash}。 */
+  @PreAuthorize("hasAuthority('system:manage')")
   public interface UserAdminService {
     /**
      * 分页查询系统用户。
@@ -103,6 +105,7 @@ public final class SystemServices {
   }
 
   /** 角色及角色权限关系管理业务。 */
+  @PreAuthorize("hasAuthority('system:manage')")
   public interface RoleService {
     /**
      * 查询全部角色。
@@ -161,6 +164,7 @@ public final class SystemServices {
   }
 
   /** 权限节点管理业务。 */
+  @PreAuthorize("hasAuthority('system:manage')")
   public interface PermissionService {
     /**
      * 查询完整权限树。
@@ -183,6 +187,7 @@ public final class SystemServices {
      *
      * @return 当前用户拥有的权限树
      */
+    @PreAuthorize("isAuthenticated()")
     List<SysPermission> mine();
 
     /**

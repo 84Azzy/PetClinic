@@ -19,6 +19,7 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -55,6 +56,7 @@ public class VisitServiceImpl implements VisitService {
      */
     @Override
     @Transactional
+    @PreAuthorize("hasAuthority('visit:create')")
     public Visit create(VisitRequest request) {
         AuthenticatedUser user = currentUser.require();
         Long userId = user.getId();
@@ -165,6 +167,7 @@ public class VisitServiceImpl implements VisitService {
      * @return 分页结果
      */
     @Override
+    @PreAuthorize("hasAuthority('visit:manage')")
     public PageResponse<Visit> page(PageQuery query, Long petId, Long vetId) {
         /*
          * 原代码：没有指定排序。
@@ -174,8 +177,12 @@ public class VisitServiceImpl implements VisitService {
         LambdaQueryWrapper<Visit> wrapper =
                 new LambdaQueryWrapper<Visit>().orderByDesc(Visit::getId);
         AuthenticatedUser user = currentUser.require();
-        if ("OWNER".equals(user.getAccountType())) {
+        // 不恰当：accountType 是账户资料，不是 RBAC 授权关系。
+        // if ("OWNER".equals(user.getAccountType())) {
+        if (hasRole(user, "OWNER")) {
             wrapper.eq(Visit::getCreatedBy, user.getId());
+        } else if (!hasRole(user, "ADMIN") && !hasRole(user, "STAFF")) {
+            throw new AccessDeniedException("当前角色无权查询预约");
         }
         if (petId != null) {
             wrapper.eq(Visit::getPetId, petId);
@@ -214,6 +221,7 @@ public class VisitServiceImpl implements VisitService {
      * @return 当前用户的预约列表
      */
     @Override
+    @PreAuthorize("hasAuthority('visit:manage')")
     public List<Visit> mine() {
         Long userId = currentUser.id();
         return visitMapper.selectMine(userId);
@@ -229,6 +237,7 @@ public class VisitServiceImpl implements VisitService {
      * @return 预约详情
      */
     @Override
+    @PreAuthorize("hasAuthority('visit:manage')")
     public Visit get(Long id) {
         /*
          * 原代码：异常写法可以工作，但没有复用项目已有的 notFound 工厂方法。
@@ -250,10 +259,14 @@ public class VisitServiceImpl implements VisitService {
          *     }
          * }
          */
-        if ("OWNER".equals(user.getAccountType())) {
+        // 不恰当：使用 accountType 判断 OWNER，角色变更后会与数据库 RBAC 关系不一致。
+        // if ("OWNER".equals(user.getAccountType())) {
+        if (hasRole(user, "OWNER")) {
             if (!Objects.equals(visit.getCreatedBy(), user.getId())) {
                 throw new AccessDeniedException("不能查询其他用户的预约信息");
             }
+        } else if (!hasRole(user, "ADMIN") && !hasRole(user, "STAFF")) {
+            throw new AccessDeniedException("当前角色无权查询预约");
         }
         return visit;
     }
@@ -278,6 +291,7 @@ public class VisitServiceImpl implements VisitService {
      */
     @Override
     @Transactional
+    @PreAuthorize("hasAuthority('visit:cancel')")
     public Visit cancel(Long id, CancelVisitRequest request) {
         /*
          * 原代码：没有复用统一的 404 工厂方法。
@@ -353,6 +367,7 @@ public class VisitServiceImpl implements VisitService {
     @Override
     // 原代码中 complete 方法没有 @Transactional；下面按小模块保留原代码用于对比。
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public Visit complete(Long id) {
         /*
          * 原代码：没有复用统一的 404 工厂方法。
@@ -387,5 +402,11 @@ public class VisitServiceImpl implements VisitService {
             throw BusinessException.conflict("预约状态更新失败，请重试");
         }
         return visit;
+    }
+
+    private boolean hasRole(AuthenticatedUser user, String role) {
+        String authority = "ROLE_" + role;
+        return user.getAuthorities().stream()
+                .anyMatch(granted -> authority.equals(granted.getAuthority()));
     }
 }

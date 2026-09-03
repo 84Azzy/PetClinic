@@ -6,6 +6,7 @@ import com.zzy.petclinic.common.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -16,6 +17,7 @@ public class VetService {
   private final VetMapper mapper;
   private final VetSpecialtyMapper relationMapper;
 
+  @PreAuthorize("isAuthenticated()")
   public PageResponse<Vet> page(PageQuery q, Long specialtyId) {
     LambdaQueryWrapper<Vet> w = new LambdaQueryWrapper<Vet>().orderByDesc(Vet::getId);
     if (StringUtils.hasText(q.keyword())) w.like(Vet::getName, q.keyword());
@@ -35,12 +37,14 @@ public class VetService {
     return PageResponse.of(mapper.selectPage(Page.of(q.pageValue(), q.sizeValue()), w));
   }
 
+  @PreAuthorize("isAuthenticated()")
   public Vet get(Long id) {
     Vet x = mapper.selectById(id);
     if (x == null) throw BusinessException.notFound("兽医");
     return x;
   }
 
+  @PreAuthorize("isAuthenticated()")
   public List<Long> specialties(Long id) {
     get(id);
     return relationMapper
@@ -51,6 +55,7 @@ public class VetService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('vet:manage')")
   public Vet create(VetRequest r) {
     Vet x = new Vet();
     apply(x, r);
@@ -62,6 +67,7 @@ public class VetService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('vet:manage')")
   public Vet update(Long id, VetRequest r) {
     Vet x = get(id);
     apply(x, r);
@@ -72,6 +78,7 @@ public class VetService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('vet:manage')")
   public void disable(Long id) {
     Vet x = get(id);
     x.setStatus("INACTIVE");

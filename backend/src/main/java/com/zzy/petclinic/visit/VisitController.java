@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -30,6 +31,7 @@ public class VisitController {
    */
   @Operation(summary = "创建预约：包含幂等、归属校验和时段条件抢占")
   @PostMapping
+  @PreAuthorize("hasAuthority('visit:create')")
   public ApiResponse<Visit> create(@Valid @RequestBody VisitRequest r) {
     return ApiResponse.created(visitService.create(r));
   }
@@ -43,6 +45,7 @@ public class VisitController {
    * @return HTTP 200 语义的分页响应
    */
   @GetMapping
+  @PreAuthorize("hasAuthority('visit:manage')")
   public ApiResponse<PageResponse<Visit>> page(
       @Valid PageQuery q,
       @RequestParam(required = false) Long petId,
@@ -56,6 +59,7 @@ public class VisitController {
    * @return 当前用户的预约列表
    */
   @GetMapping("/mine")
+  @PreAuthorize("hasAuthority('visit:manage')")
   public ApiResponse<List<Visit>> mine() {
     return ApiResponse.ok(visitService.mine());
   }
@@ -67,6 +71,7 @@ public class VisitController {
    * @return 预约详情
    */
   @GetMapping("/{id}")
+  @PreAuthorize("hasAuthority('visit:manage')")
   public ApiResponse<Visit> get(@PathVariable Long id) {
     return ApiResponse.ok(visitService.get(id));
   }
@@ -80,6 +85,7 @@ public class VisitController {
    */
   @Operation(summary = "取消预约并在同一事务释放时段")
   @PostMapping("/{id}/cancel")
+  @PreAuthorize("hasAuthority('visit:cancel')")
   public ApiResponse<Visit> cancel(
       @PathVariable Long id, @Valid @RequestBody CancelVisitRequest r) {
     return ApiResponse.ok(visitService.cancel(id, r));
@@ -92,6 +98,7 @@ public class VisitController {
    * @return 完成后的预约
    */
   @PostMapping("/{id}/complete")
+  @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
   public ApiResponse<Visit> complete(@PathVariable Long id) {
     return ApiResponse.ok(visitService.complete(id));
   }

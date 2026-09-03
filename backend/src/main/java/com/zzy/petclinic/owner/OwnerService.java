@@ -8,6 +8,7 @@ import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -18,6 +19,7 @@ public class OwnerService {
   private final OwnerMapper mapper;
   private final CurrentUser currentUser;
 
+  @PreAuthorize("hasAuthority('owner:manage')")
   public PageResponse<Owner> page(PageQuery query) {
     LambdaQueryWrapper<Owner> w = new LambdaQueryWrapper<Owner>().orderByDesc(Owner::getId);
     if (StringUtils.hasText(query.keyword()))
@@ -27,12 +29,14 @@ public class OwnerService {
     return PageResponse.of(mapper.selectPage(Page.of(query.pageValue(), query.sizeValue()), w));
   }
 
+  @PreAuthorize("hasAuthority('owner:manage')")
   public Owner get(Long id) {
     Owner value = mapper.selectById(id);
     if (value == null) throw BusinessException.notFound("主人档案");
     return value;
   }
 
+  @PreAuthorize("hasRole('OWNER')")
   public Owner mine() {
     Owner value =
         mapper.selectOne(new LambdaQueryWrapper<Owner>().eq(Owner::getUserId, currentUser.id()));
@@ -41,6 +45,7 @@ public class OwnerService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('owner:manage')")
   public Owner create(OwnerRequest r) {
     Owner value = new Owner();
     apply(value, r);
@@ -52,6 +57,7 @@ public class OwnerService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('owner:manage')")
   public Owner update(Long id, OwnerRequest r) {
     Owner value = get(id);
     apply(value, r);
@@ -61,6 +67,7 @@ public class OwnerService {
   }
 
   @Transactional
+  @PreAuthorize("hasRole('OWNER')")
   public Owner updateMine(OwnerRequest r) {
     Owner value = mine();
     apply(
@@ -73,6 +80,7 @@ public class OwnerService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('owner:manage')")
   public void disable(Long id) {
     Owner value = get(id);
     value.setStatus("INACTIVE");

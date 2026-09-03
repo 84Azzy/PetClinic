@@ -19,7 +19,9 @@ INSERT INTO sys_permission(id,parent_id,code,name,type,path,icon,sort_order,stat
 (16,6,'visit:create','创建预约','BUTTON',NULL,NULL,1,'ACTIVE'),(17,6,'visit:cancel','取消预约','BUTTON',NULL,NULL,2,'ACTIVE');
 INSERT INTO sys_user_role VALUES (1,1),(2,2),(3,3),(4,3);
 INSERT INTO sys_role_permission SELECT 1,id FROM sys_permission;
-INSERT INTO sys_role_permission(role_id,permission_id) VALUES (2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(2,7),(2,8),(2,9),(2,10),(3,3),(3,5),(3,6),(3,8),(3,9),(3,10),(3,12),(3,13),(3,14),(3,15),(3,16),(3,17);
+-- 不恰当：STAFF 只有 pet:manage 菜单权限，却没有 Controller 要求的新增、修改、停用动作权限。
+-- INSERT INTO sys_role_permission(role_id,permission_id) VALUES (2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(2,7),(2,8),(2,9),(2,10),...;
+INSERT INTO sys_role_permission(role_id,permission_id) VALUES (2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(2,7),(2,8),(2,9),(2,10),(2,13),(2,14),(2,15),(3,3),(3,5),(3,6),(3,8),(3,9),(3,10),(3,12),(3,13),(3,14),(3,15),(3,16),(3,17);
 
 INSERT INTO owner(id,user_id,name,phone,email,address,status) VALUES (1,3,'张女士','13800000003','zhang@example.com','上海市浦东新区云台路 18 号','ACTIVE'),(2,4,'李先生','13800000004','li@example.com','上海市徐汇区桂林路 66 号','ACTIVE');
 INSERT INTO pet_type(id,name,description,status) VALUES (1,'猫','家猫及常见猫科宠物','ACTIVE'),(2,'犬','各类家养犬','ACTIVE'),(3,'兔','家兔和垂耳兔','ACTIVE'),(4,'其他','鸟类、仓鼠等小型宠物','ACTIVE');

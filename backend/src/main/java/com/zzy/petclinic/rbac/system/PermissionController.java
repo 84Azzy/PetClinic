@@ -4,6 +4,7 @@ import com.zzy.petclinic.common.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "RBAC-权限管理（学习者实现）")
 @RestController
 @RequestMapping("/api/system/permissions")
+@PreAuthorize("hasAuthority('system:manage')")
 public class PermissionController {
   /** 查询完整权限树，供后台权限管理使用。 */
   @GetMapping
@@ -25,6 +27,7 @@ public class PermissionController {
 
   /** 查询当前登录用户拥有的权限树，通常供前端生成菜单和按钮。 */
   @GetMapping("/mine")
+  @PreAuthorize("isAuthenticated()")
   public ApiResponse<List<SysPermission>> mine() {
     // TODO 接线：return ApiResponse.ok(permissionService.mine());
     throw todo();

@@ -32,12 +32,10 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -77,7 +75,6 @@ class PetModuleAcceptanceTest {
     PetController controller = new PetController();
     PetService petService = mock(PetService.class);
     ReflectionTestUtils.setField(controller, "petService", petService);
-    ReflectionTestUtils.setField(controller, "ownerService", mock(OwnerService.class));
     Pet created = new Pet();
     when(petService.create(minimalRequest())).thenReturn(created);
 
@@ -92,7 +89,6 @@ class PetModuleAcceptanceTest {
     PetController controller = new PetController();
     PetService petService = mock(PetService.class);
     ReflectionTestUtils.setField(controller, "petService", petService);
-    ReflectionTestUtils.setField(controller, "ownerService", mock(OwnerService.class));
     Pet expected = new Pet();
     when(petService.get(8L)).thenReturn(expected);
 
@@ -106,6 +102,7 @@ class PetModuleAcceptanceTest {
 
   @Test
   void defaultPageExcludesInactivePets() {
+    when(currentUser.require()).thenReturn(authenticatedUser(1L, "ADMIN"));
     when(mapper.selectPage(any(Page.class), any(Wrapper.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -123,6 +120,7 @@ class PetModuleAcceptanceTest {
 
   @Test
   void requestedStatusIsAppliedToPage() {
+    when(currentUser.require()).thenReturn(authenticatedUser(1L, "ADMIN"));
     when(mapper.selectPage(any(Page.class), any(Wrapper.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -201,40 +199,33 @@ class PetModuleAcceptanceTest {
         "OWNER 读取其他宠主的宠物必须返回 403");
   }
 
-  @Disabled("依赖尚未实现的 RBAC：update 届时应只允许 ADMIN/STAFF")
   @Test
-  void ownerCannotUpdateAnotherOwnersPet() {
-    authenticateOwner(3L);
-    Pet foreignPet = foreignPet();
-    when(mapper.selectById(8L)).thenReturn(foreignPet);
-    when(mapper.selectMine(3L)).thenReturn(List.of());
-
-    assertThrows(
-        AccessDeniedException.class,
-        () -> service.update(8L, minimalRequest()),
-        "OWNER 修改其他宠主的宠物必须返回 403，应在 Service 校验原资源归属");
+  void updateRequiresAdminOrStaffAnnotation() throws Exception {
+    assertEquals(
+        "hasAuthority('pet:update') && hasAnyRole('ADMIN', 'STAFF')",
+        PetServiceImpl.class
+            .getMethod("update", Long.class, PetRequest.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class)
+            .value());
   }
 
-  @Disabled("依赖尚未实现的 RBAC：delete 届时应只允许 ADMIN/STAFF")
   @Test
-  void ownerCannotDeleteAnotherOwnersPet() {
-    authenticateOwner(3L);
-    Pet foreignPet = foreignPet();
-    when(mapper.selectById(8L)).thenReturn(foreignPet);
-    when(mapper.selectMine(3L)).thenReturn(List.of());
-
-    assertThrows(
-        AccessDeniedException.class,
-        () -> service.delete(8L),
-        "OWNER 停用其他宠主的宠物必须返回 403，不能直接按 id 更新");
+  void deleteRequiresAdminOrStaffAnnotation() throws Exception {
+    assertEquals(
+        "hasAuthority('pet:delete') && hasAnyRole('ADMIN', 'STAFF')",
+        PetServiceImpl.class
+            .getMethod("delete", Long.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class)
+            .value());
   }
 
   @Test
   void mineUsesMapperQueryBoundToCurrentUserId() {
     Pet pet = new Pet();
+    when(currentUser.id()).thenReturn(3L);
     when(mapper.selectMine(3L)).thenReturn(List.of(pet));
 
-    List<Pet> result = service.mine(3L);
+    List<Pet> result = service.mine();
 
     assertEquals(
         List.of(pet),
@@ -282,14 +273,6 @@ class PetModuleAcceptanceTest {
     pet.setOwnerId(2L);
     pet.setStatus("ACTIVE");
     return pet;
-  }
-
-  private static void authenticateOwner(Long userId) {
-    AuthenticatedUser principal = authenticatedUser(userId, "OWNER");
-    SecurityContextHolder.getContext()
-        .setAuthentication(
-            new UsernamePasswordAuthenticationToken(
-                principal, null, principal.getAuthorities()));
   }
 
   private static AuthenticatedUser authenticatedUser(Long userId, String accountType) {

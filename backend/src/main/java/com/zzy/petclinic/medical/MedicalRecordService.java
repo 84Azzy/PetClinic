@@ -6,11 +6,13 @@ import com.zzy.petclinic.common.*;
 import com.zzy.petclinic.visit.*;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('medical:manage') && hasAnyRole('ADMIN', 'STAFF')")
 public class MedicalRecordService {
   private final MedicalRecordMapper mapper;
   private final VisitMapper visits;

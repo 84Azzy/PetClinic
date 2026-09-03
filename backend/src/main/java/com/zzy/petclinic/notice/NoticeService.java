@@ -7,6 +7,7 @@ import com.zzy.petclinic.common.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -17,6 +18,7 @@ public class NoticeService {
   private final NoticeMapper mapper;
   private final CurrentUser user;
 
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public PageResponse<Notice> page(PageQuery q) {
     LambdaQueryWrapper<Notice> w =
         new LambdaQueryWrapper<Notice>()
@@ -27,6 +29,7 @@ public class NoticeService {
     return PageResponse.of(mapper.selectPage(Page.of(q.pageValue(), q.sizeValue()), w));
   }
 
+  @PreAuthorize("isAuthenticated()")
   public List<Notice> active() {
     LocalDateTime now = LocalDateTime.now();
     return mapper.selectList(
@@ -37,6 +40,7 @@ public class NoticeService {
             .orderByDesc(Notice::getPublishedAt));
   }
 
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public Notice get(Long id) {
     Notice x = mapper.selectById(id);
     if (x == null) throw BusinessException.notFound("公告");
@@ -44,6 +48,7 @@ public class NoticeService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public Notice create(NoticeRequest r) {
     Notice x = new Notice();
     apply(x, r);
@@ -55,6 +60,7 @@ public class NoticeService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public Notice update(Long id, NoticeRequest r) {
     Notice x = get(id);
     apply(x, r);
@@ -64,6 +70,7 @@ public class NoticeService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public Notice publish(Long id) {
     Notice x = get(id);
     x.setStatus("PUBLISHED");
@@ -75,6 +82,7 @@ public class NoticeService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public Notice withdraw(Long id) {
     Notice x = get(id);
     x.setStatus("WITHDRAWN");
@@ -84,6 +92,7 @@ public class NoticeService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('notice:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public void delete(Long id) {
     mapper.deleteById(get(id));
   }

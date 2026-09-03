@@ -4,11 +4,13 @@ import com.zzy.petclinic.common.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "AI 助手（学习者实现）")
 @RestController
 @RequestMapping("/api/ai")
+@PreAuthorize("hasAuthority('ai:chat')")
 public class AiController {
   @PostMapping("/chat")
   public ApiResponse<AiContracts.ChatResponse> chat(@Valid @RequestBody AiContracts.ChatRequest r) {

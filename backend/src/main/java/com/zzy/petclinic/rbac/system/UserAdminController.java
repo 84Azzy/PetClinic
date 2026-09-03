@@ -5,17 +5,20 @@ import com.zzy.petclinic.common.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 系统用户管理 HTTP 入口。
  *
- * <p>待 {@link SystemServices.UserAdminService} 有实现后，通过构造器注入它，并用 {@code @PreAuthorize} 限制为具有系统管理权限的用户。
- * 本类只负责接收参数、调用 Service 和包装 {@link ApiResponse}；密码哈希、唯一性、事务及 token 失效都属于 Service 职责。
+ * <p>待 {@link SystemServices.UserAdminService} 有实现后，通过构造器注入它。当前入口已经用 {@code @PreAuthorize}
+ * 限制为具有系统管理权限的用户。本类只负责接收参数、调用 Service 和包装 {@link ApiResponse}；密码哈希、唯一性、事务及 token
+ * 失效都属于 Service 职责。
  */
 @Tag(name = "RBAC-用户管理（学习者实现）")
 @RestController
 @RequestMapping("/api/system/users")
+@PreAuthorize("hasAuthority('system:manage')")
 public class UserAdminController {
   /** 查询用户分页。 */
   @GetMapping

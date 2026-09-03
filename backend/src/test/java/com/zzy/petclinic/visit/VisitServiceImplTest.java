@@ -258,7 +258,8 @@ class VisitServiceImplTest {
     user.setPasswordHash("password");
     user.setAccountType(accountType);
     user.setStatus("ACTIVE");
-    return new AuthenticatedUser(user, UserAuthorities.empty());
+    return new AuthenticatedUser(
+        user, new UserAuthorities(java.util.Set.of(accountType), java.util.Set.of()));
   }
 
   private static Pet activePet(Long id, Long ownerId) {

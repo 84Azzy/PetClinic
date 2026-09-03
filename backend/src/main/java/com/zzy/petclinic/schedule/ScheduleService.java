@@ -7,6 +7,7 @@ import com.zzy.petclinic.vet.VetService;
 import java.time.*;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ public class ScheduleService {
   private final VetScheduleSlotMapper mapper;
   private final VetService vets;
 
+  @PreAuthorize("hasAuthority('schedule:manage')")
   public PageResponse<VetScheduleSlot> page(
       PageQuery q, Long vetId, LocalDate date, String status) {
     LambdaQueryWrapper<VetScheduleSlot> w =
@@ -28,6 +30,7 @@ public class ScheduleService {
     return PageResponse.of(mapper.selectPage(Page.of(q.pageValue(), q.sizeValue()), w));
   }
 
+  @PreAuthorize("isAuthenticated()")
   public List<VetScheduleSlot> available(Long vetId, LocalDate date) {
     return mapper.selectList(
         new LambdaQueryWrapper<VetScheduleSlot>()
@@ -44,6 +47,7 @@ public class ScheduleService {
             .orderByAsc(VetScheduleSlot::getStartTime));
   }
 
+  @PreAuthorize("isAuthenticated()")
   public VetScheduleSlot get(Long id) {
     VetScheduleSlot x = mapper.selectById(id);
     if (x == null) throw BusinessException.notFound("排班时段");
@@ -51,6 +55,7 @@ public class ScheduleService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('schedule:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public VetScheduleSlot create(SlotRequest r) {
     vets.get(r.vetId());
     if (!r.endTime().isAfter(r.startTime()))
@@ -69,6 +74,7 @@ public class ScheduleService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('schedule:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public VetScheduleSlot update(Long id, SlotRequest r) {
     VetScheduleSlot x = get(id);
     if ("BOOKED".equals(x.getStatus())) throw BusinessException.conflict("已预约时段不能修改");
@@ -84,6 +90,7 @@ public class ScheduleService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('schedule:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public int batch(Long vetId, BatchSlotRequest r) {
     vets.get(vetId);
     if (r.endDate().isBefore(r.startDate()) || !r.dailyEnd().isAfter(r.dailyStart()))
@@ -107,6 +114,7 @@ public class ScheduleService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('schedule:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public void close(Long id) {
     VetScheduleSlot x = get(id);
     if ("BOOKED".equals(x.getStatus())) throw BusinessException.conflict("已预约时段不能关闭");
@@ -116,6 +124,7 @@ public class ScheduleService {
   }
 
   @Transactional
+  @PreAuthorize("hasAuthority('schedule:manage') && hasAnyRole('ADMIN', 'STAFF')")
   public void delete(Long id) {
     VetScheduleSlot x = get(id);
     if ("BOOKED".equals(x.getStatus())) throw BusinessException.conflict("已预约时段不能删除");

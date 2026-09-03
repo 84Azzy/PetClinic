@@ -15,12 +15,15 @@ import com.zzy.petclinic.pet.PetService;
 import com.zzy.petclinic.schedule.ScheduleService;
 import com.zzy.petclinic.schedule.VetScheduleSlot;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.jdbc.Sql;
 
 /** 验证 VisitServiceImpl 的 Spring 事务会把“已抢占时段”与“预约插入”作为一个整体提交或回滚。 */
@@ -51,7 +54,12 @@ class VisitTransactionIntegrationTest {
 
   @BeforeEach
   void setUpBusinessDependencies() {
-    when(currentUser.require()).thenReturn(ownerUser(3L));
+    AuthenticatedUser principal = ownerUser(3L);
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                principal, null, principal.getAuthorities()));
+    when(currentUser.require()).thenReturn(principal);
 
     Owner owner = new Owner();
     owner.setId(1L);
@@ -69,6 +77,11 @@ class VisitTransactionIntegrationTest {
     slot.setVetId(30L);
     slot.setStatus("AVAILABLE");
     when(scheduleService.get(20L)).thenReturn(slot);
+  }
+
+  @AfterEach
+  void clearAuthentication() {
+    SecurityContextHolder.clearContext();
   }
 
   @Test
@@ -108,6 +121,7 @@ class VisitTransactionIntegrationTest {
     user.setPasswordHash("password");
     user.setAccountType("OWNER");
     user.setStatus("ACTIVE");
-    return new AuthenticatedUser(user, UserAuthorities.empty());
+    return new AuthenticatedUser(
+        user, new UserAuthorities(java.util.Set.of("OWNER"), java.util.Set.of("visit:create")));
   }
 }

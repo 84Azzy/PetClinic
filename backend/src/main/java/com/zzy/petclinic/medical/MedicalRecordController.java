@@ -4,12 +4,14 @@ import com.zzy.petclinic.common.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "电子病历")
 @RestController
 @RequestMapping("/api/medical-records")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('medical:manage') && hasAnyRole('ADMIN', 'STAFF')")
 public class MedicalRecordController {
   private final MedicalRecordService s;
 

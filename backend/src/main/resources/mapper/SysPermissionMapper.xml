@@ -1,15 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zzy.petclinic.rbac.system.SysPermissionMapper">
-  <!--
-    TODO selectByUserId：
-    1. sys_user_role ur 连接 sys_role r，过滤 ur.user_id = #{userId} 和 r.status = 'ACTIVE'；
-    2. 再连接 sys_role_permission rp 与 sys_permission p；
-    3. 过滤 p.status = 'ACTIVE'；
-    4. SELECT DISTINCT 权限实体全部列，按 p.sort_order、p.id 排序；
-    5. XML 只返回扁平列表，parentId 分组和递归组树放在 PermissionService 实现中。
-  -->
   <select id="selectByUserId" resultType="com.zzy.petclinic.rbac.system.SysPermission">
+    <!-- 不恰当：虽然能查到权限码，但缺少 id 和审计时间字段，并用子查询割裂了 RBAC 关系链。
     select distinct p.parent_id, p.code, p.name, p.type, p.path, p.icon, p.status, p.sort_order
     from sys_role_permission rp inner join sys_permission p on
     rp.permission_id = p.id
@@ -19,6 +12,17 @@
     on r.id=ur.role_id
     where ur.user_id=#{userId} and r.status='ACTIVE')
     and p.status='ACTIVE'
-    order by p.sort_order, p.id;
+    order by p.sort_order, p.id
+    -->
+    select distinct p.id, p.parent_id, p.code, p.name, p.type, p.path, p.icon,
+           p.sort_order, p.status, p.created_at, p.updated_at
+    from sys_user_role ur
+    inner join sys_role r on r.id = ur.role_id
+    inner join sys_role_permission rp on rp.role_id = r.id
+    inner join sys_permission p on p.id = rp.permission_id
+    where ur.user_id = #{userId}
+      and r.status = 'ACTIVE'
+      and p.status = 'ACTIVE'
+    order by p.sort_order, p.id
   </select>
 </mapper>

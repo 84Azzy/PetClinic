@@ -6,11 +6,13 @@ import com.zzy.petclinic.common.*;
 import com.zzy.petclinic.pet.PetMapper;
 import java.time.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('vaccination:manage') && hasAnyRole('ADMIN', 'STAFF')")
 public class VaccinationService {
   private final VaccinationMapper mapper;
   private final PetMapper pets;
