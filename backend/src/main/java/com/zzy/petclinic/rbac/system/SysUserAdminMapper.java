@@ -3,6 +3,7 @@ package com.zzy.petclinic.rbac.system;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zzy.petclinic.rbac.authentication.SysUser;
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 用户后台管理所需的自定义 SQL。
@@ -18,17 +19,30 @@ public interface SysUserAdminMapper extends BaseMapper<SysUser> {
    * <p>XML 提示：从 sys_user 查询；keyword 有内容时模糊匹配 username、display_name、phone、email；status 有内容时精确匹配；按 id
    * 倒序，最后使用 LIMIT offset,size。列名应显式列出并排除 password_hash，避免密码哈希经 Controller 泄露。
    */
-  List<SysUser> selectPageUsers(String keyword, String status, long offset, long size);
+  // 不恰当：多个简单参数未声明 @Param，XML 对 keyword/status 等名称的绑定不稳定。
+  // List<SysUser> selectPageUsers(String keyword, String status, long offset, long size);
+  List<SysUser> selectPageUsers(
+      @Param("keyword") String keyword,
+      @Param("status") String status,
+      @Param("offset") long offset,
+      @Param("size") long size);
 
   /** 与 {@link #selectPageUsers} 使用相同条件统计总记录数，但不添加排序和 LIMIT。 */
-  long countUsers(String keyword, String status);
+  // 不恰当：同样依赖编译器保留参数名。
+  // long countUsers(String keyword, String status);
+  long countUsers(@Param("keyword") String keyword, @Param("status") String status);
 
   /**
    * 全量替换用户角色关系。
    *
-   * <p>实现前建议把此方法拆成 {@code deleteRolesByUserId(userId)} 与批量 {@code insertUserRoles(userId, roleIds)}，再由 Service 的事务依次
-   * 调用。roleIds 为空时只删除旧关系，不生成空的 IN 或 VALUES 语句。
+   * <p>删除与批量插入保持为两个 Mapper 方法，由 Service 的事务依次调用。roleIds 为空时只删除旧关系，不生成空的 IN 或 VALUES 语句。
    */
-  void deleteRolesByUserId(Long userId);
-  void insertUserRoles(Long userId,List<Long>roleIds);
+  // 不恰当：写操作返回 void，Service 无法判断数据库是否真正执行。
+  // void deleteRolesByUserId(Long userId);
+  int deleteRolesByUserId(@Param("userId") Long userId);
+
+  // 不恰当：XML 使用 ids、Java 使用 roleIds，且未显式绑定名称。
+  // void insertUserRoles(Long userId, List<Long> roleIds);
+  int insertUserRoles(
+      @Param("userId") Long userId, @Param("roleIds") List<Long> roleIds);
 }

@@ -6,15 +6,9 @@ import com.zzy.petclinic.ai.*;
 import com.zzy.petclinic.common.FeatureNotImplementedException;
 import com.zzy.petclinic.rbac.system.PermissionController;
 import com.zzy.petclinic.rbac.system.RoleController;
-import com.zzy.petclinic.rbac.system.UserAdminController;
 import org.junit.jupiter.api.Test;
 
 class ReservedContractTest {
-  @Test
-  void userAdminIs501() {
-    assertThrows(FeatureNotImplementedException.class, () -> new UserAdminController().page(null));
-  }
-
   @Test
   void roleAdminIs501() {
     assertThrows(FeatureNotImplementedException.class, () -> new RoleController().list());

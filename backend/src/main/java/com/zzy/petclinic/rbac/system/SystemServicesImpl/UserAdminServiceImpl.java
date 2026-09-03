@@ -1,34 +1,43 @@
 package com.zzy.petclinic.rbac.system.SystemServicesImpl;
 
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.zzy.petclinic.common.BusinessException;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
+import com.zzy.petclinic.rbac.authentication.CurrentUser;
 import com.zzy.petclinic.rbac.authentication.SysUser;
 import com.zzy.petclinic.rbac.system.*;
+import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.aspectj.weaver.ast.HasAnnotation;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
-//@PreAuthorize("hasAuthority('medical:manage') && hasAnyRole('ADMIN', 'STAFF')")
-@PreAuthorize("hasAuthority('system:manager') && hasAnyRole('ADMIN')")
+// 不恰当：数据库和 Controller 使用的权限码是 system:manage，system:manager 会让管理员也无法调用。
+// @PreAuthorize("hasAuthority('system:manager') && hasAnyRole('ADMIN')")
+@PreAuthorize("hasAuthority('system:manage')")
 public class UserAdminServiceImpl implements SystemServices.UserAdminService {
+
+    private static final Set<String> ACCOUNT_TYPES = Set.of("ADMIN", "STAFF", "OWNER");
+    private static final Set<String> USER_STATUSES = Set.of("ACTIVE", "INACTIVE");
 
     private final SysUserAdminMapper sysUserAdminMapper;
     private final PasswordEncoder passwordEncoder;
     private final SysRoleMapper sysRoleMapper;
+    private final CurrentUser currentUser;
     /**
      * 分页查询系统用户。
      *
@@ -45,10 +54,18 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public PageResponse<SysUser> page(PageQuery q) {
-        long offset = (q.pageValue()-1)*q.sizeValue();
-        List<SysUser> userList = sysUserAdminMapper.selectPageUsers(q.keyword(),q.status(),offset,q.sizeValue());
-        long count = sysUserAdminMapper.countUsers(q.keyword(), q.status());
-        return new PageResponse<>(userList,count,q.pageValue(),q.sizeValue());
+        // 不恰当：直接透传空白筛选值，XML 容易生成多余条件；分页与计数也重复读取参数。
+        // List<SysUser> users = sysUserAdminMapper.selectPageUsers(
+        //         q.keyword(), q.status(), (q.pageValue() - 1) * q.sizeValue(), q.sizeValue());
+        String keyword = StringUtils.hasText(q.keyword()) ? q.keyword().trim() : null;
+        String status = StringUtils.hasText(q.status()) ? q.status().trim() : null;
+        long page = q.pageValue();
+        long size = q.sizeValue();
+        long offset = (page - 1) * size;
+        List<SysUser> users =
+                sysUserAdminMapper.selectPageUsers(keyword, status, offset, size);
+        long total = sysUserAdminMapper.countUsers(keyword, status);
+        return new PageResponse<>(users, total, page, size);
     }
 
     /**
@@ -63,9 +80,15 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public SysUser create(SystemRequests.UserSave r) {
-        SysUser old = sysUserAdminMapper.selectOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername,r.username()));
-        if(old!=null){
+        //校验参数
+        validateUserSave(r);
+        validateAccountType(r.accountType());
+        validatePassword(r.password());
+
+        SysUser old =
+                sysUserAdminMapper.selectOne(
+                        new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, r.username()));
+        if (old != null) {
             throw BusinessException.conflict("该用户名已存在");
         }
         SysUser user = new SysUser();
@@ -78,10 +101,20 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
         LocalDateTime time = LocalDateTime.now();
         user.setCreatedAt(time);
         user.setUpdatedAt(time);
-        String password = passwordEncoder.encode(r.password());
         user.setTokenVersion(1);
-        user.setPasswordHash(password);
-        sysUserAdminMapper.insert(user);
+        user.setPasswordHash(passwordEncoder.encode(r.password()));
+        // 不恰当：忽略 insert 影响行数，并把带 passwordHash 的实体直接返回。
+        // sysUserAdminMapper.insert(user);
+        // return user;
+        try {
+            if (sysUserAdminMapper.insert(user) != 1) {
+                throw BusinessException.conflict("用户创建失败，请重试");
+            }
+        } catch (DuplicateKeyException exception) {
+            throw BusinessException.conflict("该用户名已存在");
+        }
+        //不把passwordHash发给前端
+        user.setPasswordHash(null);
         return user;
     }
 
@@ -98,31 +131,44 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public SysUser update(Long id, SystemRequests.UserSave r) {
-        SysUser user = sysUserAdminMapper.selectById(id);
-        if(user==null){
-            throw BusinessException.notFound("该用户不存在");
+        SysUser user = requiredUser(id);
+        validateUserSave(r);
+        validateAccountType(r.accountType());
+
+        /*
+         * 不恰当：原 LambdaUpdateWrapper 没有 eq(id)，update(wrapper) 可能更新整张 sys_user；
+         * 同时返回的 user 从未同步新字段。
+         * LambdaUpdateWrapper<SysUser> wrapper = new LambdaUpdateWrapper<>();
+         * wrapper.set(SysUser::getUsername, r.username());
+         * sysUserAdminMapper.update(wrapper);
+         * return user;
+         */
+        if (!Objects.equals(user.getUsername(), r.username())) {
+            SysUser sameName =
+                    sysUserAdminMapper.selectOne(
+                            new LambdaQueryWrapper<SysUser>()
+                                    .eq(SysUser::getUsername, r.username())
+                                    .ne(SysUser::getId, id));
+            if (sameName != null) {
+                throw BusinessException.conflict("该用户名已存在");
+            }
+            user.setUsername(r.username());
+            // 无需 Redis：JWT 过滤器每次都会重新查用户，并比较 tokenVersion。
+            user.setTokenVersion(nextTokenVersion(user));
         }
-        //todo 是使用wrapper.set还是直接user.set
-        LambdaUpdateWrapper<SysUser> wrapper = new LambdaUpdateWrapper<SysUser>();
-        if(r.username()!=null){
-            wrapper.set(SysUser::getUsername,r.username());
-            wrapper.set(SysUser::getTokenVersion,user.getTokenVersion()+1);
-            //todo JWT失效不是有redis才能做的吗
+        user.setDisplayName(r.displayName());
+        user.setPhone(r.phone());
+        user.setEmail(r.email());
+        user.setAccountType(r.accountType());
+        user.setUpdatedAt(LocalDateTime.now());
+        try {
+            if (sysUserAdminMapper.updateById(user) != 1) {
+                throw BusinessException.conflict("用户资料更新失败，请重试");
+            }
+        } catch (DuplicateKeyException exception) {
+            throw BusinessException.conflict("该用户名已存在");
         }
-        if(r.displayName()!=null){
-           wrapper.set(SysUser::getDisplayName,r.displayName());
-        }
-        if(r.phone()!=null){
-            wrapper.set(SysUser::getPhone,r.phone());
-        }
-        if(r.email()!=null){
-            wrapper.set(SysUser::getEmail,r.email());
-        }
-        if(r.accountType()!=null){
-            wrapper.set(SysUser::getAccountType,r.accountType());
-        }
-        wrapper.set(SysUser::getUpdatedAt,LocalDateTime.now());
-        sysUserAdminMapper.update(wrapper);
+        user.setPasswordHash(null);
         return user;
     }
 
@@ -137,18 +183,25 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public void changeStatus(Long id, String status) {
-        SysUser user = sysUserAdminMapper.selectById(id);
-        if(user==null){
-            throw BusinessException.notFound("该用户不存在");
+        SysUser user = requiredUser(id);
+        /*
+         * 不恰当：使用 || 会让 ACTIVE/INACTIVE 都判为非法；之后还把“设置状态”写成了“切换状态”。
+         * if (!"ACTIVE".equals(status) || !"INACTIVE".equals(status)) { ... }
+         * String target = "ACTIVE".equals(status) ? "INACTIVE" : "ACTIVE";
+         */
+        validateStatus(status);
+        if (Objects.equals(currentUser.id(), id) && "INACTIVE".equals(status)) {
+            throw BusinessException.conflict("不能停用当前登录账号");
         }
-        if(!"ACTIVE".equals(status) || !"INACTIVE".equals(status)){
-            throw BusinessException.conflict("状态非法");
+        if (Objects.equals(user.getStatus(), status)) {
+            return;
         }
-        String s = "ACTIVE".equals(status)? "INACTIVE" : "ACTIVE";
-        LambdaUpdateWrapper<SysUser> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.set(SysUser::getStatus,s);
-        wrapper.set(SysUser::getTokenVersion,user.getTokenVersion()+1);
-        sysUserAdminMapper.update(wrapper);
+        user.setStatus(status);
+        user.setTokenVersion(nextTokenVersion(user));
+        user.setUpdatedAt(LocalDateTime.now());
+        if (sysUserAdminMapper.updateById(user) != 1) {
+            throw BusinessException.conflict("用户状态更新失败，请重试");
+        }
     }
 
     /**
@@ -162,16 +215,19 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public void resetPassword(Long id, String password) {
-        SysUser user = sysUserAdminMapper.selectById(id);
-        if(user==null){
-            throw BusinessException.notFound("该用户不存在");
+        SysUser user = requiredUser(id);
+        validatePassword(password);
+        /*
+         * 不恰当：原代码只构造 wrapper，没有执行 Mapper 更新，因此密码和 tokenVersion 都不会落库。
+         * LambdaUpdateWrapper<SysUser> wrapper = new LambdaUpdateWrapper<>();
+         * wrapper.set(SysUser::getPasswordHash, passwordEncoder.encode(password));
+         */
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setTokenVersion(nextTokenVersion(user));
+        user.setUpdatedAt(LocalDateTime.now());
+        if (sysUserAdminMapper.updateById(user) != 1) {
+            throw BusinessException.conflict("密码重置失败，请重试");
         }
-        //todo 校验正则不会写
-        String s = passwordEncoder.encode(password);
-        LambdaUpdateWrapper<SysUser> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.set(SysUser::getPasswordHash,s);
-        wrapper.set(SysUser::getTokenVersion,user.getTokenVersion()+1);
-        //todo JWT过期
     }
 
     /**
@@ -187,22 +243,36 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
     @Override
     @Transactional
     public void assignRoles(Long id, List<Long> ids) {
-        SysUser user = sysUserAdminMapper.selectById(id);
-        if(user==null){
-            throw BusinessException.notFound("该用户不存在");
+        requiredUser(id);
+        if (ids == null || ids.stream().anyMatch(Objects::isNull)) {
+            throw badRequest("角色编号不能为空");
         }
-        List<Long> list = ids.stream()
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        List<SysRole> roles = sysRoleMapper.selectByIds(list);
-        List<Long>idList=roles.stream()
-                .filter(role-> role.getStatus().equals("ACTIVE"))
-                .map(SysRole::getId)
-                .toList();
-        //删除和新增
+        List<Long> roleIds = List.copyOf(new LinkedHashSet<>(ids));
+
+        /*
+         * 不恰当：原实现过滤掉 null、停用角色和不存在角色后继续保存，调用者会误以为全部分配成功。
+         * List<Long> idList = roles.stream().filter(role -> role.getStatus().equals("ACTIVE"))...
+         */
+        if (!roleIds.isEmpty()) {
+            Map<Long, SysRole> rolesById =
+                    sysRoleMapper.selectByIds(roleIds).stream()
+                            .collect(Collectors.toMap(SysRole::getId, Function.identity()));
+            for (Long roleId : roleIds) {
+                SysRole role = rolesById.get(roleId);
+                if (role == null) {
+                    throw BusinessException.notFound("角色 " + roleId);
+                }
+                if (!"ACTIVE".equals(role.getStatus())) {
+                    throw BusinessException.conflict("角色 " + roleId + " 已停用");
+                }
+            }
+        }
+
         sysUserAdminMapper.deleteRolesByUserId(id);
-        sysUserAdminMapper.insertUserRoles(id,idList);
+        if (!roleIds.isEmpty()
+                && sysUserAdminMapper.insertUserRoles(id, roleIds) != roleIds.size()) {
+            throw BusinessException.conflict("用户角色分配失败，请重试");
+        }
     }
 
     /**
@@ -215,11 +285,52 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public List<SysRole> roles(Long id) {
+        // 不恰当：查询后再创建同义局部变量，没有增加任何校验或转换。
+        // List<SysRole> roles = sysRoleMapper.selectByUserId(id);
+        // return roles;
+        requiredUser(id);
+        return sysRoleMapper.selectByUserId(id);
+    }
+
+    private SysUser requiredUser(Long id) {
         SysUser user = sysUserAdminMapper.selectById(id);
-        if(user==null){
-            throw BusinessException.notFound("该用户不存在");
+        if (user == null) {
+            throw BusinessException.notFound("用户");
         }
-        List<SysRole> roles = sysRoleMapper.selectByUserId(id);
-        return roles;
+        return user;
+    }
+
+    private void validateAccountType(String accountType) {
+        if (accountType == null || !ACCOUNT_TYPES.contains(accountType)) {
+            throw badRequest("账号类型只允许 ADMIN、STAFF 或 OWNER");
+        }
+    }
+
+    private void validateStatus(String status) {
+        if (status == null || !USER_STATUSES.contains(status)) {
+            throw badRequest("用户状态只允许 ACTIVE 或 INACTIVE");
+        }
+    }
+
+    private void validatePassword(String password) {
+        if (!StringUtils.hasText(password) || password.length() < 6) {
+            throw badRequest("密码长度不能少于 6 位");
+        }
+    }
+
+    private void validateUserSave(SystemRequests.UserSave request) {
+        if (request == null
+                || !StringUtils.hasText(request.username())
+                || !StringUtils.hasText(request.displayName())) {
+            throw badRequest("用户名和姓名不能为空");
+        }
+    }
+
+    private int nextTokenVersion(SysUser user) {
+        return (user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1;
+    }
+
+    private BusinessException badRequest(String message) {
+        return new BusinessException(HttpStatus.BAD_REQUEST, message);
     }
 }
