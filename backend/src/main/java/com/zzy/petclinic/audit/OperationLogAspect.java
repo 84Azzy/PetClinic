@@ -1,6 +1,6 @@
 package com.zzy.petclinic.audit;
 
-import com.zzy.petclinic.authentication.AuthenticatedUser;
+import com.zzy.petclinic.rbac.authentication.AuthenticatedUser;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;

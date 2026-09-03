@@ -7,9 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.zzy.petclinic.authentication.AuthenticatedUser;
-import com.zzy.petclinic.authentication.SysUser;
-import com.zzy.petclinic.authorization.UserAuthorities;
+import com.zzy.petclinic.rbac.authentication.AuthenticatedUser;
+import com.zzy.petclinic.rbac.authentication.SysUser;
+import com.zzy.petclinic.rbac.authorization.UserAuthorities;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.owner.Owner;

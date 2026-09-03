@@ -14,10 +14,20 @@ public class BusinessException extends RuntimeException {
     return status;
   }
 
+  /**
+   * 404异常 找不到
+   * @param name
+   * @return
+   */
   public static BusinessException notFound(String name) {
     return new BusinessException(HttpStatus.NOT_FOUND, name + "不存在");
   }
 
+  /**
+   * 409异常 冲突
+   * @param message
+   * @return
+   */
   public static BusinessException conflict(String message) {
     return new BusinessException(HttpStatus.CONFLICT, message);
   }

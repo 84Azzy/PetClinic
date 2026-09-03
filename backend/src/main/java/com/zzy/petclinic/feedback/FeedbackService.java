@@ -2,7 +2,7 @@ package com.zzy.petclinic.feedback;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zzy.petclinic.authentication.CurrentUser;
+import com.zzy.petclinic.rbac.authentication.CurrentUser;
 import com.zzy.petclinic.common.*;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;

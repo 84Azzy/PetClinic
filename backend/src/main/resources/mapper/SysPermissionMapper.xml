@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zzy.petclinic.system.SysPermissionMapper">
-  <!-- TODO selectByUserId 与权限树 -->
+<mapper namespace="com.zzy.petclinic.rbac.system.SysPermissionMapper">
+  <!--
+    TODO selectByUserId：
+    1. sys_user_role ur 连接 sys_role r，过滤 ur.user_id = #{userId} 和 r.status = 'ACTIVE'；
+    2. 再连接 sys_role_permission rp 与 sys_permission p；
+    3. 过滤 p.status = 'ACTIVE'；
+    4. SELECT DISTINCT 权限实体全部列，按 p.sort_order、p.id 排序；
+    5. XML 只返回扁平列表，parentId 分组和递归组树放在 PermissionService 实现中。
+  -->
+  <select id="selectByUserId" resultType="com.zzy.petclinic.rbac.system.SysPermission">
+    select distinct p.parent_id, p.code, p.name, p.type, p.path, p.icon, p.status, p.sort_order
+    from sys_role_permission rp inner join sys_permission p on
+    rp.permission_id = p.id
+    where rp.role_id in
+    (select r.id
+    from sys_user_role ur inner join sys_role r
+    on r.id=ur.role_id
+    where ur.user_id=#{userId} and r.status='ACTIVE')
+    and p.status='ACTIVE'
+    order by p.sort_order, p.id;
+  </select>
 </mapper>

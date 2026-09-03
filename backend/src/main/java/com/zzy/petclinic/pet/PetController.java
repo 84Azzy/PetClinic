@@ -1,6 +1,6 @@
 package com.zzy.petclinic.pet;
 
-import com.zzy.petclinic.authentication.AuthenticatedUser;
+import com.zzy.petclinic.rbac.authentication.AuthenticatedUser;
 import com.zzy.petclinic.common.*;
 import com.zzy.petclinic.owner.Owner;
 import com.zzy.petclinic.owner.OwnerService;
