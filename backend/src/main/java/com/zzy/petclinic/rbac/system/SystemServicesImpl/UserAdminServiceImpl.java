@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+//DuplicateKeyException Spring 的持久层异常：唯一索引 / 主键重复异常
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -131,7 +132,9 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
      */
     @Override
     public SysUser update(Long id, SystemRequests.UserSave r) {
+        //根据id查用户
         SysUser user = requiredUser(id);
+
         validateUserSave(r);
         validateAccountType(r.accountType());
 
@@ -144,6 +147,7 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
          * return user;
          */
         if (!Objects.equals(user.getUsername(), r.username())) {
+            //判断是否已有r.username这个用户名的用户
             SysUser sameName =
                     sysUserAdminMapper.selectOne(
                             new LambdaQueryWrapper<SysUser>()
@@ -244,6 +248,7 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
     @Transactional
     public void assignRoles(Long id, List<Long> ids) {
         requiredUser(id);
+        //ids只要有元素有null，全都拒了
         if (ids == null || ids.stream().anyMatch(Objects::isNull)) {
             throw badRequest("角色编号不能为空");
         }
@@ -256,6 +261,8 @@ public class UserAdminServiceImpl implements SystemServices.UserAdminService {
         if (!roleIds.isEmpty()) {
             Map<Long, SysRole> rolesById =
                     sysRoleMapper.selectByIds(roleIds).stream()
+                            //`Function.identity()` = 返回流中当前遍历的元素本身；在当前上下文中表示遍历的sysRole对象
+                            //map里面的值为roleId:sysRole
                             .collect(Collectors.toMap(SysRole::getId, Function.identity()));
             for (Long roleId : roleIds) {
                 SysRole role = rolesById.get(roleId);

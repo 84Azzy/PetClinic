@@ -15,6 +15,15 @@ public class BusinessException extends RuntimeException {
   }
 
   /**
+   * 400异常 坏请求
+   * @param msg
+   * @return
+   */
+  public static BusinessException badRequest(String msg){
+    return new BusinessException(HttpStatus.BAD_REQUEST,msg);
+  }
+
+  /**
    * 404异常 找不到
    * @param name
    * @return

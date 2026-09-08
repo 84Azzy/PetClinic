@@ -4,6 +4,8 @@ import com.zzy.petclinic.common.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,44 +17,45 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "RBAC-角色管理（学习者实现）")
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/system/roles")
 @PreAuthorize("hasAuthority('system:manage')")
 public class RoleController {
+
+  private final SystemServices.RoleService roleService;
+
   /** 查询全部角色。 */
   @GetMapping
   public ApiResponse<List<SysRole>> list() {
-    // TODO 接线：return ApiResponse.ok(roleService.list());
-    throw todo();
+    return ApiResponse.ok(roleService.list());
   }
 
   /** 新建角色。 */
   @PostMapping
   public ApiResponse<SysRole> create(@Valid @RequestBody SystemRequests.RoleSave r) {
-    // TODO 接线：return ApiResponse.created(roleService.create(r));
-    throw todo();
+    return ApiResponse.created(roleService.create(r));
   }
 
   /** 修改角色资料。 */
   @PutMapping("/{id}")
   public ApiResponse<SysRole> update(
       @PathVariable Long id, @Valid @RequestBody SystemRequests.RoleSave r) {
-    // TODO 接线：return ApiResponse.ok(roleService.update(id, r));
-    throw todo();
+    return ApiResponse.ok(roleService.update(id, r));
   }
 
   /** 删除角色；关联校验与清理必须在 Service 的事务中完成。 */
   @DeleteMapping("/{id}")
   public ApiResponse<Void> delete(@PathVariable Long id) {
-    // TODO 接线：调用 roleService.delete(id)，再返回成功消息。
-    throw todo();
+    roleService.delete(id);
+    return ApiResponse.message("删除角色成功");
   }
 
   /** 全量替换角色拥有的权限。 */
   @PutMapping("/{id}/permissions")
   public ApiResponse<Void> permissions(
       @PathVariable Long id, @Valid @RequestBody SystemRequests.Ids r) {
-    // TODO 接线：调用 roleService.assignPermissions(id, r.ids())，再返回成功消息。
-    throw todo();
+    roleService.assignPermissions(id, r.ids());
+    return ApiResponse.message("角色权限替换成功");
   }
 
   private FeatureNotImplementedException todo() {

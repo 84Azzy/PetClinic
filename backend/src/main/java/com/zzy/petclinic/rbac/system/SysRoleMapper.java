@@ -1,6 +1,8 @@
 package com.zzy.petclinic.rbac.system;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
+
 import java.util.List;
 
 /** 角色表 Mapper；基础增删改查由 MyBatis-Plus 提供，自定义方法写在同名 XML 中。 */
@@ -15,4 +17,15 @@ public interface SysRoleMapper extends BaseMapper<SysRole> {
    * @return 已启用角色列表
    */
   List<SysRole> selectByUserId(Long userId);
+
+  /**
+   * 根据roleId查询是否还有用户关联角色
+   * @param roleId
+   * @return
+   */
+  Long countUsersByRoleId(@Param("roleId")Long roleId);
+
+  int deletePermissionByRoleId(@Param("roleId") Long roleId);
+
+  int insertRolePermissions(@Param("roleId") Long roleId,@Param("permissionList")List<Long> permissionList);
 }

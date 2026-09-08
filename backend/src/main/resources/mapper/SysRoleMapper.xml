@@ -15,4 +15,23 @@
       and r.status = 'ACTIVE'
     order by r.id
   </select>
+
+  <select id="countUsersByRoleId">
+    select count(*)
+    from sys_user_role
+    where role_id=#{roleId}
+  </select>
+
+  <delete id="deletePermissionByRoleId">
+    delete from sys_role_permission
+    where role_id=#{roleId}
+  </delete>
+
+  <insert id="insertRolePermissions">
+    insert into sys_role_permission(role_id,permission_id)
+    values
+    <foreach collection="permissionList" item="permissionId" separator=",">
+      (#{roleId},#{permissionId})
+    </foreach>
+  </insert>
 </mapper>

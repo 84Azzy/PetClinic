@@ -1,12 +1,34 @@
 package com.zzy.petclinic.rbac.system.SystemServicesImpl;
 
-import com.zzy.petclinic.rbac.system.SysRole;
-import com.zzy.petclinic.rbac.system.SystemRequests;
-import com.zzy.petclinic.rbac.system.SystemServices;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zzy.petclinic.common.BusinessException;
+import com.zzy.petclinic.rbac.authentication.SysUser;
+import com.zzy.petclinic.rbac.system.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.kafka.SslBundleSslEngineFactory;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+@Service
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyAuthority('system:manager')")
 public class RoleServiceImpl implements SystemServices.RoleService {
+
+    private static final Set<String> CODE = Set.of("ADMIN","STAFF","OWNER");
+    private static final Set<String> STATUS = Set.of("ACTIVE","INACTIVE");
+
+    private final SysRoleMapper sysRoleMapper;
+    private final SysPermissionMapper sysPermissionMapper;
+
+
     /**
      * 查询全部角色。
      *
@@ -17,7 +39,7 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      */
     @Override
     public List<SysRole> list() {
-        return List.of();
+        return sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>().orderByDesc(SysRole::getId,SysRole::getCode));
     }
 
     /**
@@ -31,7 +53,28 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      */
     @Override
     public SysRole create(SystemRequests.RoleSave r) {
-        return null;
+        validateCode(r.code());
+        SysRole role = new SysRole();
+        role.setCode(r.code());
+        if(r.status()==null)role.setStatus("ACTIVE");
+        else{
+            validateStatus(r.status());
+            role.setStatus(r.status());
+        }
+        validateRoleSave(r.name());
+        role.setName(r.name());
+        role.setDescription(r.description());
+        try{
+            if(sysRoleMapper.insert(role)!=1){
+                throw BusinessException.conflict("角色插入失败，请重试");
+            }
+        } catch (DuplicateKeyException e) {
+            throw BusinessException.conflict("角色已经存在");
+        }
+        LocalDateTime no = LocalDateTime.now();
+        role.setCreatedAt(no);
+        role.setUpdatedAt(no);
+        return role;
     }
 
     /**
@@ -46,7 +89,36 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      */
     @Override
     public SysRole update(Long id, SystemRequests.RoleSave r) {
-        return null;
+        SysRole role =requiredRole(id);
+        if(CODE.contains(role.getCode())){
+            throw BusinessException.badRequest("系统内置角色禁止修改");
+        }
+        //校验code唯一性
+        if(r.code()!=null && !role.getCode().equals(r.code())){
+            SysRole role1 = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
+                    .eq(SysRole::getCode,r.code())
+                    .ne(SysRole::getId,role.getId()));
+            if(role1!=null){
+                throw BusinessException.conflict("角色重复");
+            }
+            role.setCode(r.code());
+        }
+        if(StringUtils.hasText(r.status())){
+            validateStatus(r.status());
+            role.setStatus(r.status());
+        }
+        if(StringUtils.hasText(r.description())){
+            role.setDescription(r.description());
+        }
+        role.setUpdatedAt(LocalDateTime.now());
+        try{
+            if(sysRoleMapper.updateById(role)!=1){
+                throw BusinessException.conflict("角色更新失败，请重试");
+            }
+        }catch (DuplicateKeyException e){
+            throw BusinessException.conflict("该角色已经存在");
+        }
+        return role;
     }
 
     /**
@@ -58,8 +130,19 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      * @param id 角色编号
      */
     @Override
+    @Transactional
     public void delete(Long id) {
-
+        SysRole role = requiredRole(id);
+        if(CODE.contains(role.getCode())){
+            throw BusinessException.badRequest("内置角色禁止删除");
+        }
+        if(sysRoleMapper.countUsersByRoleId(id)>0){
+            throw BusinessException.badRequest("还有用户关联该角色，请先解除关系再删除");
+        }
+        sysRoleMapper.deletePermissionByRoleId(id);
+        if(sysRoleMapper.deleteById(id)!=1){
+            throw BusinessException.conflict("角色删除失败，请重试");
+        }
     }
 
     /**
@@ -73,7 +156,56 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      * @param ids 完整的目标权限编号集合
      */
     @Override
+    @Transactional
     public void assignPermissions(Long id, List<Long> ids) {
+        SysRole role = requiredRole(id);
+        if(ids==null || ids.stream().anyMatch(Objects::isNull)){
+            throw BusinessException.badRequest("权限列表不能为空");
+        }
+        List<Long> permissionIds = List.copyOf(new LinkedHashSet<>(ids));
+        if(!permissionIds.isEmpty()){
+            Map<Long,SysPermission> permissionMap =
+                    sysPermissionMapper.selectByIds(permissionIds).stream()
+                            .collect(Collectors.toMap(SysPermission::getId, Function.identity()));
+            for(Long permissionId : permissionIds){
+                SysPermission permission = permissionMap.get(permissionId);
+                if(permission==null){
+                    throw BusinessException.notFound("权限"+permissionId);
+                }
+                if(!"ACTIVE".equals(permission.getStatus())){
+                    throw BusinessException.conflict("权限"+permission.getCode()+"已停用");
+                }
+            }
+        }
+        sysRoleMapper.deletePermissionByRoleId(id);
+        if(!permissionIds.isEmpty() && sysRoleMapper.insertRolePermissions(id,permissionIds)!=permissionIds.size()){
+            throw BusinessException.conflict("权限分配失败，请重试");
+        }
+    }
 
+    private SysRole requiredRole(Long id){
+        SysRole role = sysRoleMapper.selectById(id);
+        if(role==null){
+            throw BusinessException.notFound("该角色不存在");
+        }
+        return role;
+    }
+
+    private void validateStatus(String s){
+        if(s==null || !STATUS.contains(s)){
+            throw BusinessException.badRequest("用户状态只能为ACTIVE或者INACTIVE");
+        }
+    }
+
+    private void validateCode(String c){
+        if(c==null || CODE.contains(c)){
+            throw BusinessException.badRequest("角色code重复");
+        }
+    }
+
+    private void validateRoleSave(String name){
+        if(name==null ||name.isBlank()){
+            throw BusinessException.badRequest("name字段不能为空");
+        }
     }
 }
