@@ -2,28 +2,36 @@ package com.zzy.petclinic.rbac.system.SystemServicesImpl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zzy.petclinic.common.BusinessException;
-import com.zzy.petclinic.rbac.authentication.SysUser;
-import com.zzy.petclinic.rbac.system.*;
+import com.zzy.petclinic.rbac.system.SysPermission;
+import com.zzy.petclinic.rbac.system.SysPermissionMapper;
+import com.zzy.petclinic.rbac.system.SysRole;
+import com.zzy.petclinic.rbac.system.SysRoleMapper;
+import com.zzy.petclinic.rbac.system.SystemRequests;
+import com.zzy.petclinic.rbac.system.SystemServices;
+import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.kafka.SslBundleSslEngineFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyAuthority('system:manager')")
+// 不恰当：项目实际权限码是 system:manage，system:manager 会让合法管理员也被拒绝。
+// @PreAuthorize("hasAnyAuthority('system:manager')")
+@PreAuthorize("hasAuthority('system:manage')")
 public class RoleServiceImpl implements SystemServices.RoleService {
 
-    private static final Set<String> CODE = Set.of("ADMIN","STAFF","OWNER");
-    private static final Set<String> STATUS = Set.of("ACTIVE","INACTIVE");
+    private static final Set<String> RESERVED_ROLE_CODES = Set.of("ADMIN", "STAFF", "OWNER");
+    private static final Set<String> ROLE_STATUSES = Set.of("ACTIVE", "INACTIVE");
 
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
@@ -39,7 +47,11 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      */
     @Override
     public List<SysRole> list() {
-        return sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>().orderByDesc(SysRole::getId,SysRole::getCode));
+        // 不恰当：同时按 id、code 倒序没有实际意义，也与系统其他管理列表的稳定顺序不一致。
+        // return sysRoleMapper.selectList(
+        //         new LambdaQueryWrapper<SysRole>().orderByDesc(SysRole::getId, SysRole::getCode));
+        return sysRoleMapper.selectList(
+                new LambdaQueryWrapper<SysRole>().orderByAsc(SysRole::getId));
     }
 
     /**
@@ -53,27 +65,34 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      */
     @Override
     public SysRole create(SystemRequests.RoleSave r) {
-        validateCode(r.code());
-        SysRole role = new SysRole();
-        role.setCode(r.code());
-        if(r.status()==null)role.setStatus("ACTIVE");
-        else{
-            validateStatus(r.status());
-            role.setStatus(r.status());
+        validateRoleSave(r);
+        String code = r.code().trim();
+        if (isReservedCode(code)) {
+            throw BusinessException.badRequest("内置角色编码不能由接口创建");
         }
-        validateRoleSave(r.name());
-        role.setName(r.name());
+        ensureCodeAvailable(code, null);
+
+        SysRole role = new SysRole();
+        role.setCode(code);
+        role.setName(r.name().trim());
         role.setDescription(r.description());
-        try{
-            if(sysRoleMapper.insert(role)!=1){
+        role.setStatus(statusForCreate(r.status()));
+        LocalDateTime now = LocalDateTime.now();
+        role.setCreatedAt(now);
+        role.setUpdatedAt(now);
+
+        /*
+         * 不恰当：没有在插入前检查 code，且 createdAt/updatedAt 在 insert 之后赋值，不会写入数据库。
+         * sysRoleMapper.insert(role);
+         * role.setCreatedAt(LocalDateTime.now());
+         */
+        try {
+            if (sysRoleMapper.insert(role) != 1) {
                 throw BusinessException.conflict("角色插入失败，请重试");
             }
-        } catch (DuplicateKeyException e) {
-            throw BusinessException.conflict("角色已经存在");
+        } catch (DuplicateKeyException exception) {
+            throw BusinessException.conflict("角色编码已存在");
         }
-        LocalDateTime no = LocalDateTime.now();
-        role.setCreatedAt(no);
-        role.setUpdatedAt(no);
         return role;
     }
 
@@ -83,40 +102,51 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      * <p>实现提示：按 id 查询并返回 404；code 变化时检查唯一性；校验状态值后更新允许修改的字段。若项目把 ADMIN 等内置角色视为保留角色，
      * 应禁止修改其 code。
      *
-     * @param id 角色编号
+     * @param roleId 角色编号
      * @param r  新角色资料
      * @return 修改后的角色
      */
     @Override
-    public SysRole update(Long id, SystemRequests.RoleSave r) {
-        SysRole role =requiredRole(id);
-        if(CODE.contains(role.getCode())){
-            throw BusinessException.badRequest("系统内置角色禁止修改");
+    public SysRole update(Long roleId, SystemRequests.RoleSave r) {
+        SysRole role = requiredRole(roleId);
+        validateRoleSave(r);
+        String code = r.code().trim();
+
+        /*
+         * 不恰当：只要是内置角色就禁止修改任何资料；真正需要保持稳定的是内置 role code。
+         * if (RESERVED_ROLE_CODES.contains(role.getCode())) {
+         *     throw BusinessException.badRequest("系统内置角色禁止修改");
+         * }
+         */
+        //当前角色为内置角色
+        if (isReservedCode(role.getCode()) && !role.getCode().equals(code)) {
+            throw BusinessException.badRequest("系统内置角色编码禁止修改");
         }
-        //校验code唯一性
-        if(r.code()!=null && !role.getCode().equals(r.code())){
-            SysRole role1 = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
-                    .eq(SysRole::getCode,r.code())
-                    .ne(SysRole::getId,role.getId()));
-            if(role1!=null){
-                throw BusinessException.conflict("角色重复");
+        //普通角色
+        if (!role.getCode().equals(code)) {
+            if (isReservedCode(code)) {
+                throw BusinessException.badRequest("不能使用内置角色编码");
             }
-            role.setCode(r.code());
+            ensureCodeAvailable(code, roleId);
+            role.setCode(code);
         }
-        if(StringUtils.hasText(r.status())){
-            validateStatus(r.status());
-            role.setStatus(r.status());
+        if (r.status() != null) {
+            String status = r.status().trim();
+            validateStatus(status);
+            role.setStatus(status);
         }
-        if(StringUtils.hasText(r.description())){
-            role.setDescription(r.description());
-        }
+
+        // 不恰当：原实现遗漏 name，且 hasText(description) 导致描述无法被清空。
+        // if (StringUtils.hasText(r.description())) role.setDescription(r.description());
+        role.setName(r.name().trim());
+        role.setDescription(r.description());
         role.setUpdatedAt(LocalDateTime.now());
-        try{
-            if(sysRoleMapper.updateById(role)!=1){
+        try {
+            if (sysRoleMapper.updateById(role) != 1) {
                 throw BusinessException.conflict("角色更新失败，请重试");
             }
-        }catch (DuplicateKeyException e){
-            throw BusinessException.conflict("该角色已经存在");
+        } catch (DuplicateKeyException exception) {
+            throw BusinessException.conflict("角色编码已存在");
         }
         return role;
     }
@@ -127,20 +157,23 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      * <p>实现提示（需要事务）：先确认角色存在；内置角色可直接禁止删除；若仍有用户绑定该角色，返回 409 并提示先解绑；清理
      * sys_role_permission 后再删除角色。不要依赖数据库外键异常作为正常业务流程。
      *
-     * @param id 角色编号
+     * @param roleId 角色编号
      */
     @Override
     @Transactional
-    public void delete(Long id) {
-        SysRole role = requiredRole(id);
-        if(CODE.contains(role.getCode())){
+    public void delete(Long roleId) {
+        SysRole role = requiredRole(roleId);
+        if (isReservedCode(role.getCode())) {
             throw BusinessException.badRequest("内置角色禁止删除");
         }
-        if(sysRoleMapper.countUsersByRoleId(id)>0){
-            throw BusinessException.badRequest("还有用户关联该角色，请先解除关系再删除");
+
+        // 不恰当：角色仍被用户引用属于资源状态冲突，应返回 409，而不是 400 参数错误。
+        // throw BusinessException.badRequest("还有用户关联该角色，请先解除关系再删除");
+        if (sysRoleMapper.countUsersByRoleId(roleId) > 0) {
+            throw BusinessException.conflict("还有用户关联该角色，请先解除关系再删除");
         }
-        sysRoleMapper.deletePermissionByRoleId(id);
-        if(sysRoleMapper.deleteById(id)!=1){
+        sysRoleMapper.deletePermissionsByRoleId(roleId);
+        if (sysRoleMapper.deleteById(roleId) != 1) {
             throw BusinessException.conflict("角色删除失败，请重试");
         }
     }
@@ -152,60 +185,93 @@ public class RoleServiceImpl implements SystemServices.RoleService {
      * sys_role_permission，再批量插入新关系；空列表表示清空。当前 JWT 过滤器每次请求都会重新查权，所以变更会在下一次请求生效；不要在 JWT
      * 中复制一份长期不刷新的权限列表。
      *
-     * @param id  角色编号
+     * @param roleId 角色编号
      * @param ids 完整的目标权限编号集合
      */
     @Override
     @Transactional
-    public void assignPermissions(Long id, List<Long> ids) {
-        SysRole role = requiredRole(id);
-        if(ids==null || ids.stream().anyMatch(Objects::isNull)){
-            throw BusinessException.badRequest("权限列表不能为空");
+    public void assignPermissions(Long roleId, List<Long> ids) {
+        requiredRole(roleId);
+        if (ids == null || ids.stream().anyMatch(Objects::isNull)) {
+            throw BusinessException.badRequest("权限编号集合及其元素不能为空");
         }
         List<Long> permissionIds = List.copyOf(new LinkedHashSet<>(ids));
-        if(!permissionIds.isEmpty()){
-            Map<Long,SysPermission> permissionMap =
+
+        if (!permissionIds.isEmpty()) {
+            Map<Long, SysPermission> permissionsById =
                     sysPermissionMapper.selectByIds(permissionIds).stream()
                             .collect(Collectors.toMap(SysPermission::getId, Function.identity()));
-            for(Long permissionId : permissionIds){
-                SysPermission permission = permissionMap.get(permissionId);
-                if(permission==null){
-                    throw BusinessException.notFound("权限"+permissionId);
-                }
-                if(!"ACTIVE".equals(permission.getStatus())){
-                    throw BusinessException.conflict("权限"+permission.getCode()+"已停用");
+            for (Long permissionId : permissionIds) {
+                if (!permissionsById.containsKey(permissionId)) {
+                    throw BusinessException.notFound("权限 " + permissionId);
                 }
             }
         }
-        sysRoleMapper.deletePermissionByRoleId(id);
-        if(!permissionIds.isEmpty() && sysRoleMapper.insertRolePermissions(id,permissionIds)!=permissionIds.size()){
+
+        /*
+         * 不恰当：分配阶段拒绝 INACTIVE 权限会导致角色无法保存已有的停用权限；
+         * 权限是否生效已经由授权查询中的 p.status = 'ACTIVE' 控制，这里只校验权限存在。
+         * if (!"ACTIVE".equals(permission.getStatus())) { throw ...; }
+         */
+        sysRoleMapper.deletePermissionsByRoleId(roleId);
+        if (!permissionIds.isEmpty()
+                && sysRoleMapper.insertRolePermissions(roleId, permissionIds)
+                        != permissionIds.size()) {
             throw BusinessException.conflict("权限分配失败，请重试");
         }
     }
 
-    private SysRole requiredRole(Long id){
-        SysRole role = sysRoleMapper.selectById(id);
-        if(role==null){
-            throw BusinessException.notFound("该角色不存在");
+    private SysRole requiredRole(Long roleId) {
+        SysRole role = sysRoleMapper.selectById(roleId);
+        if (role == null) {
+            // 不恰当：notFound 会自动追加“不存在”，传入“该角色不存在”会得到重复文案。
+            // throw BusinessException.notFound("该角色不存在");
+            throw BusinessException.notFound("角色");
         }
         return role;
     }
 
-    private void validateStatus(String s){
-        if(s==null || !STATUS.contains(s)){
-            throw BusinessException.badRequest("用户状态只能为ACTIVE或者INACTIVE");
+    private void validateStatus(String status) {
+        if (!StringUtils.hasText(status) || !ROLE_STATUSES.contains(status)) {
+            throw BusinessException.badRequest("角色状态只能为 ACTIVE 或 INACTIVE");
         }
     }
 
-    private void validateCode(String c){
-        if(c==null || CODE.contains(c)){
-            throw BusinessException.badRequest("角色code重复");
+    private String statusForCreate(String status) {
+        if (!StringUtils.hasText(status)) {
+            return "ACTIVE";
+        }
+        String normalized = status.trim();
+        validateStatus(normalized);
+        return normalized;
+    }
+
+    private void validateRoleSave(SystemRequests.RoleSave request) {
+        if (request == null
+                || !StringUtils.hasText(request.code())
+                || !StringUtils.hasText(request.name())) {
+            throw BusinessException.badRequest("角色编码和名称不能为空");
         }
     }
 
-    private void validateRoleSave(String name){
-        if(name==null ||name.isBlank()){
-            throw BusinessException.badRequest("name字段不能为空");
+    private void ensureCodeAvailable(String code, Long excludedId) {
+        LambdaQueryWrapper<SysRole> query =
+                new LambdaQueryWrapper<SysRole>().eq(SysRole::getCode, code);
+        if (excludedId != null) {
+            query.ne(SysRole::getId, excludedId);
         }
+        if (sysRoleMapper.selectOne(query) != null) {
+            throw BusinessException.conflict("角色编码已存在");
+        }
+    }
+
+    /**
+     * code有内容且内容为内置角色
+     * @param code
+     * @return
+     */
+    private boolean isReservedCode(String code) {
+        return StringUtils.hasText(code)
+                && RESERVED_ROLE_CODES.contains(code.trim().toUpperCase(java.util.Locale.ROOT));
     }
 }

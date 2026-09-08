@@ -16,22 +16,27 @@
     order by r.id
   </select>
 
-  <select id="countUsersByRoleId">
+  <select id="countUsersByRoleId" resultType="long">
+    <!-- 不恰当：删除角色需要按 role_id 反查用户，不能调用按 user_id 查询角色的 selectByUserId。 -->
     select count(*)
     from sys_user_role
-    where role_id=#{roleId}
+    where role_id = #{roleId}
   </select>
 
-  <delete id="deletePermissionByRoleId">
+  <!-- 不恰当：方法名使用单数 deletePermissionByRoleId，与实际删除全部关系不一致。 -->
+  <!-- <delete id="deletePermissionByRoleId">...</delete> -->
+  <delete id="deletePermissionsByRoleId">
     delete from sys_role_permission
-    where role_id=#{roleId}
+    where role_id = #{roleId}
   </delete>
 
   <insert id="insertRolePermissions">
-    insert into sys_role_permission(role_id,permission_id)
+    insert into sys_role_permission(role_id, permission_id)
     values
-    <foreach collection="permissionList" item="permissionId" separator=",">
-      (#{roleId},#{permissionId})
+    <!-- 不恰当：Java 参数已经改为 permissionIds，XML 仍使用 permissionList 会触发 BindingException。 -->
+    <!-- <foreach collection="permissionList" ...> -->
+    <foreach collection="permissionIds" item="permissionId" separator=",">
+      (#{roleId}, #{permissionId})
     </foreach>
   </insert>
 </mapper>
