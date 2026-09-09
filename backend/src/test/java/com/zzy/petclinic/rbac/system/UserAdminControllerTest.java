@@ -9,8 +9,12 @@ import static org.mockito.Mockito.when;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.rbac.authentication.SysUser;
-import com.zzy.petclinic.rbac.system.SystemServicesImpl.UserAdminServiceImpl;
+import com.zzy.petclinic.rbac.system.SystemServices.SystemServices;
+import com.zzy.petclinic.rbac.system.SystemServices.impl.UserAdminServiceImpl;
 import java.util.List;
+
+import com.zzy.petclinic.rbac.system.controller.UserAdminController;
+import com.zzy.petclinic.rbac.system.dataObject.SystemRequests;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;

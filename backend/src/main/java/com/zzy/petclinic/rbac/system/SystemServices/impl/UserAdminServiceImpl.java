@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system.SystemServicesImpl;
+package com.zzy.petclinic.rbac.system.SystemServices.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zzy.petclinic.common.BusinessException;
@@ -6,7 +6,7 @@ import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.rbac.authentication.CurrentUser;
 import com.zzy.petclinic.rbac.authentication.SysUser;
-import com.zzy.petclinic.rbac.system.*;
+
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -15,6 +15,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.zzy.petclinic.rbac.system.SystemServices.SystemServices;
+import com.zzy.petclinic.rbac.system.dataObject.SysRole;
+import com.zzy.petclinic.rbac.system.dataObject.SystemRequests;
+import com.zzy.petclinic.rbac.system.mapper.SysRoleMapper;
+import com.zzy.petclinic.rbac.system.mapper.SysUserAdminMapper;
 import lombok.RequiredArgsConstructor;
 //DuplicateKeyException Spring 的持久层异常：唯一索引 / 主键重复异常
 import org.springframework.dao.DuplicateKeyException;

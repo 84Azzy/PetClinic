@@ -1,7 +1,9 @@
-package com.zzy.petclinic.rbac.system;
+package com.zzy.petclinic.rbac.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.util.List;
+
+import com.zzy.petclinic.rbac.system.dataObject.SysRole;
 import org.apache.ibatis.annotations.Param;
 
 /** 角色表 Mapper；基础增删改查由 MyBatis-Plus 提供，自定义方法写在同名 XML 中。 */

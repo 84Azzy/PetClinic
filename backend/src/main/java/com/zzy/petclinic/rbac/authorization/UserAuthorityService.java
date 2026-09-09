@@ -1,7 +1,7 @@
 package com.zzy.petclinic.rbac.authorization;
 
-import com.zzy.petclinic.rbac.system.SysPermissionMapper;
-import com.zzy.petclinic.rbac.system.SysRoleMapper;
+import com.zzy.petclinic.rbac.system.mapper.SysPermissionMapper;
+import com.zzy.petclinic.rbac.system.mapper.SysRoleMapper;
 
 /**
  * authentication 与 RBAC 实现之间的端口。

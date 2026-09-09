@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system;
+package com.zzy.petclinic.rbac.system.dataObject;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zzy.petclinic.common.BaseEntity;

@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system;
+package com.zzy.petclinic.rbac.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zzy.petclinic.rbac.authentication.SysUser;

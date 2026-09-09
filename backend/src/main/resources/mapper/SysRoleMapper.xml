@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zzy.petclinic.rbac.system.SysRoleMapper">
-  <select id="selectByUserId" resultType="com.zzy.petclinic.rbac.system.SysRole">
+<mapper namespace="com.zzy.petclinic.rbac.system.mapper.SysRoleMapper">
+  <select id="selectByUserId" resultType="com.zzy.petclinic.rbac.system.dataObject.SysRole">
     <!-- 不恰当：字段不完整、未去重且没有稳定排序。
     select r.code, r.name, r.status, r.description
     from sys_user_role ur inner join sys_role r

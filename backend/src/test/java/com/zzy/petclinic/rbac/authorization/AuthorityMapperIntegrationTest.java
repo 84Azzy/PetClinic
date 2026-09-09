@@ -3,10 +3,10 @@ package com.zzy.petclinic.rbac.authorization;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.zzy.petclinic.rbac.system.SysPermission;
-import com.zzy.petclinic.rbac.system.SysPermissionMapper;
-import com.zzy.petclinic.rbac.system.SysRole;
-import com.zzy.petclinic.rbac.system.SysRoleMapper;
+import com.zzy.petclinic.rbac.system.dataObject.SysPermission;
+import com.zzy.petclinic.rbac.system.mapper.SysPermissionMapper;
+import com.zzy.petclinic.rbac.system.dataObject.SysRole;
+import com.zzy.petclinic.rbac.system.mapper.SysRoleMapper;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;

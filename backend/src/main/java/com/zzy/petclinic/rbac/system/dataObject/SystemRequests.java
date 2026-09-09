@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system;
+package com.zzy.petclinic.rbac.system.dataObject;
 
 import jakarta.validation.constraints.*;
 import java.util.List;
