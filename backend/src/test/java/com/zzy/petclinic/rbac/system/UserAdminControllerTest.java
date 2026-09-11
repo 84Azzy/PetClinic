@@ -9,8 +9,8 @@ import static org.mockito.Mockito.when;
 import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.rbac.authentication.SysUser;
-import com.zzy.petclinic.rbac.system.SystemServices.SystemServices;
-import com.zzy.petclinic.rbac.system.SystemServices.impl.UserAdminServiceImpl;
+import com.zzy.petclinic.rbac.system.systemServices.SystemServices;
+import com.zzy.petclinic.rbac.system.systemServices.impl.UserAdminServiceImpl;
 import java.util.List;
 
 import com.zzy.petclinic.rbac.system.controller.UserAdminController;

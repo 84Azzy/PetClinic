@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.zzy.petclinic.common.BusinessException;
-import com.zzy.petclinic.rbac.system.SystemServices.impl.RoleServiceImpl;
+import com.zzy.petclinic.rbac.system.systemServices.impl.RoleServiceImpl;
 import java.util.List;
 
 import com.zzy.petclinic.rbac.system.dataObject.SysPermission;

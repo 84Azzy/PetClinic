@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.petclinic.ai.AiConversation">
+    <select id="selectOwnedActive" resultType="com.zzy.petclinic.ai.AiConversation">
+        select *
+        from ai_conversation
+        where id=#{id}
+        and user_id=#{userId}
+        and status ='ACTIVE'
+    </select>
+
+    <select id="selectActiveByUserId" resultType="com.zzy.petclinic.ai.AiConversation">
+        select *
+        from ai_conversation
+        where user_id=#{userId}
+        and status='ACTIVE'
+        order by update_at desc, id desc
+    </select>
+
+    <update id="touchOwned">
+        update ai_conversation
+        set update_at=#{updateAt}
+        where id=#{id}
+        and user_id=#{userId}
+        and status='ACTIVE'
+    </update>
+
+    <update id="softDeleteOwned">
+        update set ai_conversation
+        set status='DELETED'
+        where id=#{id}
+        and user_id=#{userId}
+        and status='ACTIVE'
+    </update>
+</mapper>

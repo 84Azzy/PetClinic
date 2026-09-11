@@ -16,7 +16,7 @@ import com.zzy.petclinic.common.PageQuery;
 import com.zzy.petclinic.common.PageResponse;
 import com.zzy.petclinic.rbac.authentication.CurrentUser;
 import com.zzy.petclinic.rbac.authentication.SysUser;
-import com.zzy.petclinic.rbac.system.SystemServices.impl.UserAdminServiceImpl;
+import com.zzy.petclinic.rbac.system.systemServices.impl.UserAdminServiceImpl;
 import java.util.List;
 
 import com.zzy.petclinic.rbac.system.dataObject.SysRole;

@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system.SystemServices.impl;
+package com.zzy.petclinic.rbac.system.systemServices.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zzy.petclinic.common.BusinessException;
@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import com.zzy.petclinic.rbac.system.SystemServices.SystemServices;
+import com.zzy.petclinic.rbac.system.systemServices.SystemServices;
 import com.zzy.petclinic.rbac.system.dataObject.SysRole;
 import com.zzy.petclinic.rbac.system.dataObject.SystemRequests;
 import com.zzy.petclinic.rbac.system.mapper.SysRoleMapper;

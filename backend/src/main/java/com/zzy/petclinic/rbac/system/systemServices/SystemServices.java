@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system.SystemServices;
+package com.zzy.petclinic.rbac.system.systemServices;
 
 import com.zzy.petclinic.rbac.authentication.SysUser;
 import com.zzy.petclinic.common.*;

@@ -1,4 +1,4 @@
-package com.zzy.petclinic.rbac.system.SystemServices.impl;
+package com.zzy.petclinic.rbac.system.systemServices.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -7,7 +7,7 @@ import com.zzy.petclinic.rbac.authentication.CurrentUser;
 import com.zzy.petclinic.rbac.system.dataObject.SysPermission;
 import com.zzy.petclinic.rbac.system.mapper.SysPermissionMapper;
 import com.zzy.petclinic.rbac.system.dataObject.SystemRequests;
-import com.zzy.petclinic.rbac.system.SystemServices.SystemServices;
+import com.zzy.petclinic.rbac.system.systemServices.SystemServices;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;

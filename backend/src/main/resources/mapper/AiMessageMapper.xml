@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.petclinic.ai.AiMessageMapper">
+    <select id="selectOwnedMessages" resultType="com.zzy.petclinic.ai.AiMessage">
+        select m.*
+        from ai_message m
+        inner join ai_conversation c
+        on m.conversation_id=c.id
+        where m.conversation_id=#{conversationId}
+        and c.user_id=#{userId}
+        and c.status='ACTIVE'
+        order by m.id desc
+    </select>
+
+    <select id="selectOwnedContext" resultType="com.zzy.petclinic.ai.AiMessage">
+        select recent.*
+        from(
+            select m.*
+            from ai_message m
+            inner join ai_conversation c
+            on c.id=m.conversation_id
+            where m.conversation_id=#{conversationId}
+            and c.user_id=#{userId}
+            and c.status='ACTIVE'
+            and m.role in('USER','ASSISTANT')
+            order by m.id desc
+            limit #{limit}
+        )recent
+        order by recent.id asc
+    </select>
+</mapper>

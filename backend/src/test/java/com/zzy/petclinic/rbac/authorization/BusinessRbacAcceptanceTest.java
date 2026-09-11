@@ -29,7 +29,7 @@ import com.zzy.petclinic.rbac.authentication.AuthenticatedUser;
 import com.zzy.petclinic.rbac.authentication.CurrentUser;
 import com.zzy.petclinic.rbac.authentication.SysUser;
 import com.zzy.petclinic.rbac.system.controller.PermissionController;
-import com.zzy.petclinic.rbac.system.SystemServices.SystemServices;
+import com.zzy.petclinic.rbac.system.systemServices.SystemServices;
 import com.zzy.petclinic.schedule.ScheduleController;
 import com.zzy.petclinic.schedule.ScheduleService;
 import com.zzy.petclinic.schedule.SlotRequest;

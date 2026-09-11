@@ -11,6 +11,29 @@ spring:
   jackson:
     default-property-inclusion: non_null
     time-zone: Asia/Shanghai
+  http:
+    client:
+      connect-timeout: 3s
+      read-timeout: 15s
+  ai:
+    model:
+      chat: ${AI_CHAT_MODEL:none}
+      embedding: none
+
+    openai:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      chat:
+        completions-path: /chat/completions
+        options:
+          model: ${DEEPSEEK_MODEL:deepseek-v4-pro}
+          temperature: 0.2
+          max-tokens: 1200
+          parallel-tool-calls: false
+          response-format:
+            type: JSON_OBJECT
+    retry:
+      max-attempts: 1
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
