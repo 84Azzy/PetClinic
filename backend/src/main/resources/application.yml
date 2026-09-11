@@ -19,6 +19,13 @@ spring:
     model:
       chat: ${AI_CHAT_MODEL:none}
       embedding: none
+      # 不恰当：只关闭 embedding 不够，OpenAI Starter 还会默认创建语音、转写、图片和审核模型，
+      # 在未配置 API Key 时会使普通业务也无法启动。本项目只使用 chat，因此显式关闭其余模型。
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
 
     openai:
       api-key: ${DEEPSEEK_API_KEY:}

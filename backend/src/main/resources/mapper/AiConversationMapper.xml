@@ -2,7 +2,9 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zzy.petclinic.ai.AiConversation">
+<!-- 不恰当：namespace 必须指向 Mapper 接口，指向实体类会导致自定义 SQL 无法绑定。 -->
+<!-- <mapper namespace="com.zzy.petclinic.ai.AiConversation"> -->
+<mapper namespace="com.zzy.petclinic.ai.AiConversationMapper">
     <select id="selectOwnedActive" resultType="com.zzy.petclinic.ai.AiConversation">
         select *
         from ai_conversation
@@ -16,20 +18,25 @@
         from ai_conversation
         where user_id=#{userId}
         and status='ACTIVE'
-        order by update_at desc, id desc
+        <!-- 不恰当：表字段是 updated_at，不是 update_at。 -->
+        <!-- order by update_at desc, id desc -->
+        order by updated_at desc, id desc
     </select>
 
     <update id="touchOwned">
         update ai_conversation
-        set update_at=#{updateAt}
+        <!-- set update_at=#{updateAt} -->
+        set updated_at=#{updatedAt}
         where id=#{id}
         and user_id=#{userId}
         and status='ACTIVE'
     </update>
 
     <update id="softDeleteOwned">
-        update set ai_conversation
-        set status='DELETED'
+        <!-- 不恰当：UPDATE 语法中表名应在 SET 之前。 -->
+        <!-- update set ai_conversation -->
+        update ai_conversation
+        set status='DELETED', updated_at=#{updatedAt}
         where id=#{id}
         and user_id=#{userId}
         and status='ACTIVE'

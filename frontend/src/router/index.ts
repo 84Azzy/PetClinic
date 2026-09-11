@@ -104,7 +104,11 @@ const children: RouteRecordRaw[] = [
   {
     path: "ai",
     component: () => import("@/views/AiAssistantView.vue"),
-    meta: { title: "AI 诊疗助手", icon: "MagicStick" },
+    meta: {
+      title: "AI 诊疗助手",
+      icon: "MagicStick",
+      accountTypes: ["ADMIN", "OWNER"],
+    },
   },
   {
     path: "profile",

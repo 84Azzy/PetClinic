@@ -7,6 +7,16 @@ spring:
   sql:
     init:
       mode: never
+  # test/resources/application.yml 会遮蔽 main 中的同名文件，因此测试环境也必须显式关闭全部 AI 模型。
+  ai:
+    model:
+      chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
 app:
   jwt:
     secret: TestSecretKeyMustBeAtLeastThirtyTwoBytesLongForPetClinic

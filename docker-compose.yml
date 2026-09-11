@@ -22,6 +22,11 @@ services:
       DB_USERNAME: root
       DB_PASSWORD: root
       JWT_SECRET: DockerPetClinicSecretKeyMustBeAtLeastThirtyTwoBytesLong
+      # Spring AI 使用 OpenAI 兼容协议访问 DeepSeek，所以 provider 必须写 openai。
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-none}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
     ports: ["8080:8080"]
     depends_on:
       mysql:

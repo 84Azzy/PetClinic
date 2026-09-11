@@ -2,7 +2,7 @@
   <div class="ai-page">
     <PageHeader
       title="AI 诊疗助手"
-      description="预留 AI 模块：自然语言查询与结构化预约草稿"
+      description="自然语言查询宠物、兽医时段和预约，并生成可确认的预约草稿"
     />
     <div class="ai-shell">
       <aside>
@@ -11,13 +11,27 @@
             >新对话</el-button
           >
         </div>
-        <div
-          v-for="c in conversations"
-          :key="c.id"
-          :class="['conversation', { active: c.id === conversationId }]"
-          @click="conversationId = c.id"
-        >
-          <el-icon><ChatDotRound /></el-icon><span>{{ c.title }}</span>
+        <div v-loading="loadingConversations" class="conversation-list">
+          <div
+            v-for="c in conversations"
+            :key="c.id"
+            :class="['conversation', { active: c.id === conversationId }]"
+            @click="selectConversation(c.id)"
+          >
+            <el-icon><ChatDotRound /></el-icon><span>{{ c.title }}</span>
+            <el-button
+              text
+              circle
+              :icon="Delete"
+              title="删除会话"
+              @click.stop="removeConversation(c)"
+            />
+          </div>
+          <el-empty
+            v-if="!loadingConversations && conversations.length === 0"
+            description="暂无历史会话"
+            :image-size="64"
+          />
         </div>
       </aside>
       <section class="chat">
@@ -28,10 +42,10 @@
           <div>
             <b>宠安 AI 助手</b><span>业务查询 · 预约草稿 · 不直接写库</span>
           </div>
-          <el-tag type="warning" effect="plain">待你实现</el-tag>
+          <el-tag type="success" effect="plain">DeepSeek 已接通</el-tag>
         </div>
-        <div class="messages">
-          <div class="welcome">
+        <div v-loading="loadingMessages" class="messages">
+          <div v-if="!loadingMessages && messages.length === 0" class="welcome">
             <div class="ai-avatar large">
               <el-icon><MagicStick /></el-icon>
             </div>
@@ -45,8 +59,29 @@
               </button>
             </div>
           </div>
-          <div v-for="(m, i) in messages" :key="i" :class="['message', m.role]">
-            {{ m.content }}
+          <div
+            v-for="(m, i) in messages"
+            :key="m.id ?? `${m.role}-${i}`"
+            :class="['message-row', m.role]"
+          >
+            <div v-if="m.role === 'tool'" class="tool-message">
+              <el-icon><Connection /></el-icon>
+              已调用业务工具：{{ m.toolName }}
+            </div>
+            <template v-else>
+              <div class="message">{{ m.content }}</div>
+              <div v-if="m.draft" class="draft-card">
+                <b>预约草稿</b>
+                <span>宠物 ID：{{ m.draft.petId }}</span>
+                <span>时段 ID：{{ m.draft.slotId }}</span>
+                <span>就诊原因：{{ m.draft.reason }}</span>
+                <p v-if="m.draft.summary">{{ m.draft.summary }}</p>
+                <el-tag type="warning" effect="plain">尚未创建，等待确认</el-tag>
+              </div>
+            </template>
+          </div>
+          <div v-if="sending" class="message-row assistant">
+            <div class="message thinking">DeepSeek 正在查询并整理结果…</div>
           </div>
         </div>
         <div class="composer">
@@ -55,11 +90,14 @@
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 4 }"
             placeholder="例如：给我的猫找明天下午的外科医生"
-            @keydown.ctrl.enter="send"
+            :disabled="sending"
+            @keydown.ctrl.enter.prevent="send"
           /><el-button
             type="primary"
             circle
             :icon="Promotion"
+            :loading="sending"
+            :disabled="!input.trim() || sending"
             @click="send"
           /><small
             >Ctrl + Enter 发送 · AI
@@ -71,32 +109,145 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref } from "vue";
-import { Plus, Promotion } from "@element-plus/icons-vue";
+import { onMounted, ref } from "vue";
+import { Connection, Delete, Plus, Promotion } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
-import http from "@/api/http";
+import {
+  deleteAiConversation,
+  listAiConversations,
+  listAiMessages,
+  sendAiMessage,
+  type AiConversation,
+  type AppointmentDraft,
+} from "@/api/ai";
+
+type UiMessage = {
+  id?: number;
+  role: "user" | "assistant" | "tool";
+  content: string;
+  toolName?: string;
+  draft?: AppointmentDraft;
+};
+
 const conversationId = ref<number>();
-const conversations = ref([
-  { id: 1, title: "糯米的就诊安排" },
-  { id: 2, title: "查询外科医生" },
-]);
-const messages = ref<{ role: string; content: string }[]>([]);
+const conversations = ref<AiConversation[]>([]);
+const messages = ref<UiMessage[]>([]);
 const input = ref("");
+const loadingConversations = ref(false);
+const loadingMessages = ref(false);
+const sending = ref(false);
 const prompts = ["查询我的宠物", "查找明天下午可用兽医", "查看我的预约"];
+
+const parseDraft = (payload?: string): AppointmentDraft | undefined => {
+  if (!payload) return undefined;
+  try {
+    const value = JSON.parse(payload) as Partial<AppointmentDraft>;
+    if (value.petId && value.slotId && value.reason) {
+      return value as AppointmentDraft;
+    }
+  } catch {
+    // 历史审计数据格式异常时只忽略草稿卡片，不影响消息正文展示。
+  }
+  return undefined;
+};
+
+const loadConversations = async () => {
+  loadingConversations.value = true;
+  try {
+    conversations.value = (await listAiConversations()).data;
+  } finally {
+    loadingConversations.value = false;
+  }
+};
+
+const selectConversation = async (id: number) => {
+  conversationId.value = id;
+  loadingMessages.value = true;
+  try {
+    const history = (await listAiMessages(id)).data;
+    if (conversationId.value !== id) return;
+    messages.value = history.map((message) => ({
+      id: message.id,
+      role: message.role.toLowerCase() as UiMessage["role"],
+      content: message.content,
+      toolName: message.toolName,
+      draft:
+        message.role === "ASSISTANT"
+          ? parseDraft(message.toolPayload)
+          : undefined,
+    }));
+  } finally {
+    if (conversationId.value === id) loadingMessages.value = false;
+  }
+};
+
 const newChat = () => {
   conversationId.value = undefined;
   messages.value = [];
+  loadingMessages.value = false;
 };
+
+const removeConversation = async (conversation: AiConversation) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除会话“${conversation.title}”吗？`,
+      "删除会话",
+      { type: "warning", confirmButtonText: "删除", cancelButtonText: "取消" },
+    );
+  } catch {
+    return;
+  }
+  await deleteAiConversation(conversation.id);
+  const removedCurrent = conversationId.value === conversation.id;
+  await loadConversations();
+  if (removedCurrent) newChat();
+  ElMessage.success("会话已删除");
+};
+
 const send = async () => {
-  if (!input.value.trim()) return;
-  const content = input.value;
-  messages.value.push({ role: "user", content });
+  const content = input.value.trim();
+  if (!content || sending.value) return;
+  const userMessage: UiMessage = { role: "user", content };
+  messages.value.push(userMessage);
   input.value = "";
-  await http.post("/ai/chat", {
-    conversationId: conversationId.value,
-    message: content,
-  });
+  sending.value = true;
+  try {
+    const response = (
+      await sendAiMessage({
+        conversationId: conversationId.value,
+        message: content,
+      })
+    ).data;
+    conversationId.value = response.conversationId;
+    messages.value.push(
+      ...response.toolsUsed.map<UiMessage>((toolName) => ({
+        role: "tool",
+        content: "工具调用成功",
+        toolName,
+      })),
+      {
+        role: "assistant",
+        content: response.answer,
+        draft: response.draft,
+      },
+    );
+    await loadConversations();
+  } catch (error) {
+    const index = messages.value.indexOf(userMessage);
+    if (index >= 0) messages.value.splice(index, 1);
+    input.value = content;
+  } finally {
+    sending.value = false;
+  }
 };
+
+onMounted(async () => {
+  await loadConversations();
+  if (conversations.value[0]) {
+    await selectConversation(conversations.value[0].id);
+  }
+});
 </script>
 <style scoped>
 .ai-shell {
@@ -118,6 +269,9 @@ const send = async () => {
   width: 100%;
   margin-bottom: 14px;
 }
+.conversation-list {
+  min-height: 120px;
+}
 .conversation {
   display: flex;
   align-items: center;
@@ -127,6 +281,20 @@ const send = async () => {
   color: #65747e;
   font-size: 13px;
   cursor: pointer;
+}
+.conversation span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation .el-button {
+  opacity: 0;
+  color: inherit;
+}
+.conversation:hover .el-button,
+.conversation.active .el-button {
+  opacity: 1;
 }
 .conversation.active,
 .conversation:hover {
@@ -208,19 +376,62 @@ const send = async () => {
   border-color: #009688;
   color: #007f73;
 }
-.message {
+.message-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 10px 0;
+}
+.message-row.user {
+  align-items: flex-end;
+}
+.message-row .message {
   max-width: 70%;
   padding: 11px 14px;
   border-radius: 12px;
-  margin: 10px;
+  white-space: pre-wrap;
+  line-height: 1.65;
 }
-.message.user {
-  margin-left: auto;
+.message-row.user .message {
   background: #009688;
   color: #fff;
 }
-.message.assistant {
+.message-row.assistant .message {
   background: #f1f5f4;
+  color: #31433f;
+}
+.message.thinking {
+  color: #80908c;
+}
+.tool-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 10px;
+  color: #7d8e89;
+  font-size: 12px;
+}
+.draft-card {
+  display: grid;
+  gap: 7px;
+  width: min(440px, 70%);
+  margin-top: 8px;
+  padding: 14px 16px;
+  border: 1px solid #d9e8e5;
+  border-radius: 12px;
+  background: #fbfefd;
+  color: #50625e;
+  font-size: 13px;
+}
+.draft-card b {
+  color: #007f73;
+  font-size: 14px;
+}
+.draft-card p {
+  margin: 2px 0;
+}
+.draft-card .el-tag {
+  width: fit-content;
 }
 .composer {
   position: relative;

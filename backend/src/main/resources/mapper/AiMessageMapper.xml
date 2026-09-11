@@ -11,7 +11,9 @@
         where m.conversation_id=#{conversationId}
         and c.user_id=#{userId}
         and c.status='ACTIVE'
-        order by m.id desc
+        <!-- 不恰当：前端按数组顺序展示消息，倒序会让对话时间线反转。 -->
+        <!-- order by m.id desc -->
+        order by m.id asc
     </select>
 
     <select id="selectOwnedContext" resultType="com.zzy.petclinic.ai.AiMessage">

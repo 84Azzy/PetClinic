@@ -192,7 +192,14 @@ const groups: Group[] = [
   {
     title: "AI 诊疗助手",
     icon: "MagicStick",
-    items: [{ title: "AI 诊疗助手", path: "/ai", icon: "MagicStick" }],
+    items: [
+      {
+        title: "AI 诊疗助手",
+        path: "/ai",
+        icon: "MagicStick",
+        types: ["ADMIN", "OWNER"],
+      },
+    ],
   },
 ];
 const visibleGroups = computed(() =>
