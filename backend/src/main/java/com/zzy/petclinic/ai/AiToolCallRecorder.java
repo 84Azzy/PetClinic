@@ -23,6 +23,7 @@ public class AiToolCallRecorder {
     }
 
     /**
+     * TODO 在AiTools的query方法中被调用，tool执行完只读查询后，无论是否有报错，都调用了record()进行记录
      * 向当前请求追加一条工具执行概要。
      *
      * @param name 工具名称

@@ -32,6 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SpringAiDeepSeekGateway implements AiModelGateway{
 
+    //TODO讲讲这个类，是干啥的，有啥用，咋用？
     private final ObjectProvider<ChatClient.Builder> chatClientBuilderProvide;
     private final ObjectMapper objectMapper;
 

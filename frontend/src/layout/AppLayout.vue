@@ -4,7 +4,7 @@
       <div class="brand">
         <div class="brand-mark">P</div>
         <div v-if="!collapsed">
-          <strong>宠安诊所</strong><small>SMART PET CLINIC</small>
+          <strong>黑心诊所</strong><small>ZZY PET CLINIC</small>
         </div>
       </div>
       <el-menu

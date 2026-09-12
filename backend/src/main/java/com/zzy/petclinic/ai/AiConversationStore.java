@@ -27,6 +27,7 @@ public class AiConversationStore {
     private final ObjectMapper objectMapper;
 
     /**
+     * TODO查一条
      * 要求目标会话存在、未删除且属于指定用户。
      *
      * <p>先用一条带归属和状态条件的 SQL 查询；未命中时再查主键，以区分 404、403 和并发状态变化。
@@ -55,6 +56,7 @@ public class AiConversationStore {
     }
 
     /**
+     * TODO查全部
      * 按最近活跃时间查询指定用户的全部有效会话。
      *
      * @param userId 当前登录用户编号
@@ -96,6 +98,7 @@ public class AiConversationStore {
 
     /**
      * 在一个事务中创建新会话，并写入它的第一轮完整消息。
+     * 即先创会话（插入一条记录到ai_conversation），再根据调用insertTurn插入消息表（ai_message）
      *
      * @param userId 会话所属的用户编号
      * @param title 从首条用户消息截取的标题
@@ -164,7 +167,7 @@ public class AiConversationStore {
     }
 
     /**
-     * 按 USER、零到多条 TOOL、ASSISTANT 的顺序写入一轮消息。
+     * 按 USER、零到多条 TOOL、ASSISTANT 的顺序写入一轮消息，即插入记录到ai_message表。
      *
      * @param conversationId 会话编号
      * @param userText 用户消息

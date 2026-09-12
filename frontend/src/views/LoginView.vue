@@ -81,7 +81,19 @@ const submit = async () => {
   try {
     const res = await login(form);
     auth.setSession(res.data.token, res.data.user);
-    router.push("/dashboard");
+    /**
+     * 访问 /pets
+     * → 发现没登录
+     * → 跳到 /login?redirect=/pets
+     * → 登录成功
+     * → 回到 /pets
+     */
+    const redirect =
+        typeof router.currentRoute.value.query.redirect === "string"
+            ? router.currentRoute.value.query.redirect
+            : "/dashboard";
+
+    await router.push(redirect);
   } finally {
     loading.value = false;
   }
