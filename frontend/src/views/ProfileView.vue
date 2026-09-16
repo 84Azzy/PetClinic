@@ -26,8 +26,7 @@
             auth.user?.email || "-"
           }}</el-descriptions-item
           ><el-descriptions-item label="授权说明"
-            >RBAC 授权模块等待你实现，当前仅验证 JWT
-            登录状态。</el-descriptions-item
+            >菜单与按钮由后端 RBAC 权限树动态生成，业务接口权限仍由后端最终兜底。</el-descriptions-item
           ></el-descriptions
         >
       </div>

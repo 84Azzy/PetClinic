@@ -1,10 +1,11 @@
 <template>
   <ResourceCrud
     title="权限管理"
-    description="RBAC 留白：菜单、按钮与接口权限树"
+    description="维护后端下发的菜单、按钮与接口权限树"
     endpoint="/system/permissions"
     :columns="columns"
     :fields="fields"
+    write-authority="system:manage"
   />
 </template>
 <script setup lang="ts">

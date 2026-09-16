@@ -2,7 +2,7 @@
   <div>
     <PageHeader :title="title" :description="description"
       ><el-button
-        v-if="createEnabled"
+        v-if="createEnabled && canWrite"
         type="primary"
         :icon="Plus"
         @click="openCreate"
@@ -37,10 +37,14 @@
               v-if="col.key === 'status'"
               :status="scope.row[col.key]"
             /><span v-else>{{
-              format(scope.row[col.key], col.type)
+              format(scope.row[col.key], col.type, col, scope.row)
             }}</span></template
           ></el-table-column
-        ><el-table-column label="操作" width="155" fixed="right"
+        ><el-table-column
+          v-if="canWrite"
+          label="操作"
+          width="155"
+          fixed="right"
           ><template #default="scope"
             ><el-button link type="primary" @click="openEdit(scope.row)"
               >编辑</el-button
@@ -128,7 +132,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { Plus, Search } from "@element-plus/icons-vue";
 import type { FormInstance } from "element-plus";
 import {
@@ -137,13 +141,17 @@ import {
   listResource,
   updateResource,
 } from "@/api/resource";
+import type { PageQuery } from "@/types";
 import PageHeader from "./PageHeader.vue";
 import StatusTag from "./StatusTag.vue";
+import { useAuthStore } from "@/stores/auth";
+import { canAccess, type Role } from "@/utils/permission";
 export interface Column {
   key: string;
   label: string;
   width?: number;
   type?: "date" | "datetime";
+  formatter?: (value: unknown, row: Record<string, any>) => string;
 }
 export interface Field {
   key: string;
@@ -160,8 +168,23 @@ const p = withDefaults(
     columns: Column[];
     fields: Field[];
     createEnabled?: boolean;
+    writeAuthority?: string;
+    writeRoles?: Role[];
   }>(),
   { createEnabled: true },
+);
+const auth = useAuthStore();
+
+/*
+ * TODO【新知识：把权限条件作为组件 props】
+ * ResourceCrud 不再猜测每个页面谁能修改；父页面把后端对应的权限码和角色传进来。
+ * 同一个 canWrite 同时控制新增、编辑、删除，公共组件改一次，所有 CRUD 页面都会生效。
+ */
+const canWrite = computed(() =>
+  canAccess(auth.permissions, {
+    roles: p.writeRoles,
+    authorities: p.writeAuthority ? [p.writeAuthority] : [],
+  }),
 );
 const loading = ref(false),
   saving = ref(false),
@@ -175,7 +198,18 @@ const formRef = ref<FormInstance>();
 const load = async () => {
   loading.value = true;
   try {
-    const res = await listResource<Record<string, any>>(p.endpoint, query);
+    /*
+     * TODO【新知识：请求参数规范化】
+     * 空字符串也是一个真实的 HTTP 参数。直接发送 status=""，后端会按空状态查询而得到 0 条。
+     * 用条件展开只发送用户真正填写的筛选项。
+     */
+    const params: PageQuery & Record<string, unknown> = {
+      page: query.page,
+      size: query.size,
+      ...(query.keyword.trim() ? { keyword: query.keyword.trim() } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const res = await listResource<Record<string, any>>(p.endpoint, params);
     if (Array.isArray(res.data)) {
       rows.value = res.data;
       total.value = res.data.length;
@@ -221,7 +255,13 @@ const remove = async (id: number) => {
   await deleteResource(p.endpoint, id);
   await load();
 };
-const format = (v: any, type?: string) => {
+const format = (
+  v: any,
+  type?: string,
+  column?: Column,
+  row?: Record<string, any>,
+) => {
+  if (column?.formatter && row) return column.formatter(v, row);
   if (v == null) return "-";
   if ((type === "date" || type === "datetime") && typeof v === "string")
     return v.replace("T", " ").slice(0, type === "date" ? 10 : 16);

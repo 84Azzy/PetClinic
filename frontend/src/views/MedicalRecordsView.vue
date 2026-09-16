@@ -5,6 +5,8 @@
     endpoint="/medical-records"
     :columns="columns"
     :fields="fields"
+    write-authority="medical:manage"
+    :write-roles="['ADMIN', 'STAFF']"
   />
 </template>
 <script setup lang="ts">

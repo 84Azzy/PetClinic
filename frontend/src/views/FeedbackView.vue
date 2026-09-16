@@ -24,7 +24,7 @@
         /><el-table-column prop="status" label="状态"
           ><template #default="s"
             ><StatusTag :status="s.row.status" /></template></el-table-column
-        ><el-table-column label="操作" width="120"
+        ><el-table-column v-if="isManager" label="操作" width="120"
           ><template #default="s"
             ><el-button link type="primary" @click="reply(s.row.id)"
               >回复</el-button
@@ -61,12 +61,19 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { Plus } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
 import StatusTag from "@/components/StatusTag.vue";
 import { createResource, listResource, postAction } from "@/api/resource";
+import { useAuthStore } from "@/stores/auth";
+const auth = useAuthStore();
+const isManager = computed(
+  () =>
+    auth.hasAuthority("feedback:manage") &&
+    (auth.hasRole("ADMIN") || auth.hasRole("STAFF")),
+);
 const rows = ref<any[]>([]),
   loading = ref(false),
   visible = ref(false);
@@ -79,8 +86,10 @@ const form = reactive({
 const load = async () => {
   loading.value = true;
   try {
-    const r = await listResource<any>("/feedback", { page: 1, size: 100 });
-    if (!Array.isArray(r.data)) rows.value = r.data.records;
+    // 宠主只能读取自己的反馈；管理员和员工读取管理分页。
+    const endpoint = isManager.value ? "/feedback" : "/feedback/mine";
+    const r = await listResource<any>(endpoint, { page: 1, size: 100 });
+    rows.value = Array.isArray(r.data) ? r.data : r.data.records;
   } finally {
     loading.value = false;
   }

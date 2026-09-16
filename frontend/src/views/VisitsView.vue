@@ -6,6 +6,10 @@
     >
       <el-button
         v-if="canCreate"
+        v-permission="{
+          roles: ['OWNER'],
+          authorities: ['visit:create'],
+        }"
         type="primary"
         :icon="Plus"
         @click="openCreate"
@@ -120,6 +124,10 @@
           <template #default="{ row }">
             <el-button
               v-if="canCancel(row)"
+              v-permission="{
+                roles: ['OWNER'],
+                authorities: ['visit:cancel'],
+              }"
               link
               type="danger"
               @click="cancel(row)"
@@ -129,6 +137,7 @@
 
             <el-button
               v-if="canComplete(row)"
+              v-permission="{ roles: ['ADMIN', 'STAFF'] }"
               link
               type="success"
               @click="complete(row)"

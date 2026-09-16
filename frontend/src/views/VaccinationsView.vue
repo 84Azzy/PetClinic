@@ -5,6 +5,8 @@
     endpoint="/vaccinations"
     :columns="columns"
     :fields="fields"
+    write-authority="vaccination:manage"
+    :write-roles="['ADMIN', 'STAFF']"
   />
 </template>
 <script setup lang="ts">

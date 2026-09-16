@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 
 /** 使用 H2 执行 VisitMapper.xml，验证条件更新 SQL 的真实行为。 */
@@ -35,6 +36,7 @@ import org.springframework.test.context.jdbc.Sql;
     })
 class VisitMapperIntegrationTest {
   @Autowired private VisitMapper visitMapper;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
   void sameSlotCanOnlyBeClaimedOnceEvenWhenTwoThreadsStartTogether() throws Exception {
@@ -79,5 +81,17 @@ class VisitMapperIntegrationTest {
     assertEquals(3L, byRequestId.getCreatedBy());
     assertEquals(List.of(1L), mine.stream().map(Visit::getId).toList());
     assertNull(visitMapper.selectByRequestId("missing"));
+  }
+
+  @Test
+  void cancelledHistoryDoesNotPreventAnotherUserFromBookingTheSameSlot() {
+    jdbcTemplate.update("update visit set status = 'CANCELLED' where id = 1");
+    jdbcTemplate.update(
+        "insert into visit(id, pet_id, slot_id, vet_id, created_by, request_id, reason, status)"
+            + " values (2, 11, 20, 30, 4, 'req-2', '复诊', 'SCHEDULED')");
+
+    Integer count =
+        jdbcTemplate.queryForObject("select count(*) from visit where slot_id = 20", Integer.class);
+    assertEquals(2, count);
   }
 }

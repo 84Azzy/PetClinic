@@ -5,6 +5,7 @@
     endpoint="/owners"
     :columns="columns"
     :fields="fields"
+    write-authority="owner:manage"
   />
 </template>
 <script setup lang="ts">

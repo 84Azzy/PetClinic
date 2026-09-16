@@ -11,6 +11,10 @@
       -->
       <el-button
           v-if="canCreate"
+          v-permission="{
+            roles: ['ADMIN', 'STAFF'],
+            authorities: ['pet:create'],
+          }"
           type="primary"
           :icon="Plus"
           @click="openCreate"
@@ -178,6 +182,10 @@
           <template #default="{ row }">
             <el-button
                 v-if="canUpdate"
+                v-permission="{
+                  roles: ['ADMIN', 'STAFF'],
+                  authorities: ['pet:update'],
+                }"
                 link
                 type="primary"
                 @click="openEdit(row)"
@@ -187,6 +195,10 @@
 
             <el-button
                 v-if="canDelete"
+                v-permission="{
+                  roles: ['ADMIN', 'STAFF'],
+                  authorities: ['pet:delete'],
+                }"
                 link
                 type="danger"
                 :disabled="row.status === 'INACTIVE'"

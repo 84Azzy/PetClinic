@@ -80,7 +80,8 @@ const submit = async () => {
   loading.value = true;
   try {
     const res = await login(form);
-    auth.setSession(res.data.token, res.data.user);
+    // 登录成功后继续加载后端权限树，菜单和按钮准备好以后再进入业务页。
+    await auth.startSession(res.data.token, res.data.user);
     /**
      * 访问 /pets
      * → 发现没登录
@@ -91,7 +92,7 @@ const submit = async () => {
     const redirect =
         typeof router.currentRoute.value.query.redirect === "string"
             ? router.currentRoute.value.query.redirect
-            : "/dashboard";
+            : auth.firstMenuPath || "/profile";
 
     await router.push(redirect);
   } finally {

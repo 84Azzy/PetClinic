@@ -23,10 +23,14 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -62,7 +66,14 @@ public class AiTools {
     public ToolResult<List<PetView>> listMyPets(){
         return query(
                 "listMyPets",
-                ()->petService.mine().stream().map(PetView::from).toList()
+                ()->{
+                    Map<Long,String> typeNames = new HashMap<>();
+                    catalogService.petTypes().forEach(
+                            type -> typeNames.put(type.getId(),type.getName()));
+                    return petService.mine().stream()
+                            .map(pet -> PetView.from(pet,typeNames.get(pet.getTypeId())))
+                            .toList();
+                }
         );
     }
 
@@ -81,23 +92,43 @@ public class AiTools {
     ){
         return query(
                 "findVets",
+                ()->searchVets(keyword,specialtyName).stream()
+                        .map(VetView::fromVet)
+                        .toList()
+        );
+    }
+
+    /**
+     * 一次查询某天、某时段真正有号的医生及其全部可预约时段。
+     *
+     * <p>相比先查医生再逐个查询排班，这个组合工具能减少模型的连续工具调用次数，也能确保
+     * “有哪些医生可以就诊”的回答同时包含具体时间和真实 slotId。
+     */
+    @Tool(
+            name = "findAvailableAppointments",
+            description = "查询某个日期和时段真正可预约的医生及具体时段。用户询问哪位医生有空、某医生何时可约或准备预约时优先使用本工具"
+    )
+    public ToolResult<List<AvailableVetView>> findAvailableAppointments(
+            @ToolParam(description = "日期，严格使用yyyy-MM-dd格式",required = true) String date,
+            @ToolParam(description = "时段：上午、下午、晚上或全天；用户未指定时传全天",required = false) String period,
+            @ToolParam(description = "兽医姓名关键词，例如陈医生；未指定医生时可省略",required = false) String vetKeyword,
+            @ToolParam(description = "专科中文名称，例如外科；未指定专科时可省略",required = false) String specialtyName){
+        return query(
+                "findAvailableAppointments",
                 ()->{
-                    Long specialtyId = null;
-                    if(StringUtils.hasText(specialtyName)){
-                        String wanted = specialtyName.trim();
-                        Specialty specialty = catalogService.specialties().stream()
-                                // 不恰当：x.getStatus() 为 null 时会抛 NullPointerException。
-                                // .filter(x->x.getStatus().equals("ACTIVE"))
-                                .filter(x->"ACTIVE".equals(x.getStatus()))
-                                .filter(x->x.getName().contains(wanted)
-                                || wanted.contains(x.getName()))
-                                .findFirst()
-                                .orElseThrow(()->BusinessException.notFound("专科"));
-                        specialtyId=specialty.getId();
-                    }
-                    PageQuery page = new PageQuery(1L,20L,StringUtils.hasText(keyword)?keyword.trim():null,"ACTIVE");
-                    return vetService.page(page,specialtyId).records().stream()
-                            .map(VetView::fromVet)
+                    LocalDate wantedDate = parseAvailableDate(date);
+                    return searchVets(vetKeyword,specialtyName).stream()
+                            .map(vet -> {
+                                List<SlotView> slots = scheduleService.available(vet.getId(),wantedDate)
+                                        .stream()
+                                        .filter(slot -> slot.getStartTime()!=null)
+                                        .filter(slot -> slot.getStartTime().isAfter(LocalDateTime.now(APP_ZONE)))
+                                        .filter(slot -> matchesPeriod(slot.getStartTime().toLocalTime(),period))
+                                        .map(SlotView::from)
+                                        .toList();
+                                return new AvailableVetView(vet.getId(),vet.getName(),slots);
+                            })
+                            .filter(result -> !result.slots().isEmpty())
                             .toList();
                 }
         );
@@ -130,15 +161,7 @@ public class AiTools {
                     if(!StringUtils.hasText(date)){
                         throw BusinessException.badRequest("date不能为空，且必须使用yyyy-MM-dd格式");
                     }
-                    LocalDate parseDate;
-                    try{
-                        parseDate = LocalDate.parse(date.trim());
-                    }catch (DateTimeParseException e){
-                        throw BusinessException.badRequest("date必须使用yyyy-MM-dd格式");
-                    }
-                    if(parseDate.isBefore(LocalDate.now(APP_ZONE))){
-                        throw BusinessException.badRequest("不能查询过去日期的可预约时段");
-                    }
+                    LocalDate parseDate = parseAvailableDate(date);
                     Vet vet=vetService.get(vetId);
                     if(!"ACTIVE".equals(vet.getStatus())){
                         throw BusinessException.conflict("该兽医当前已停用");
@@ -224,6 +247,52 @@ public class AiTools {
         }
     }
 
+    private List<Vet> searchVets(String keyword,String specialtyName){
+        Long specialtyId = null;
+        if(StringUtils.hasText(specialtyName)){
+            String wanted = specialtyName.trim();
+            Specialty specialty = catalogService.specialties().stream()
+                    .filter(x->"ACTIVE".equals(x.getStatus()))
+                    .filter(x->x.getName().contains(wanted)
+                            || wanted.contains(x.getName()))
+                    .findFirst()
+                    .orElseThrow(()->BusinessException.notFound("专科"));
+            specialtyId=specialty.getId();
+        }
+        PageQuery page = new PageQuery(
+                1L,20L,StringUtils.hasText(keyword)?keyword.trim():null,"ACTIVE");
+        return vetService.page(page,specialtyId).records();
+    }
+
+    private LocalDate parseAvailableDate(String date){
+        if(!StringUtils.hasText(date)){
+            throw BusinessException.badRequest("date不能为空，且必须使用yyyy-MM-dd格式");
+        }
+        LocalDate parsed;
+        try{
+            parsed = LocalDate.parse(date.trim());
+        }catch (DateTimeParseException exception){
+            throw BusinessException.badRequest("date必须使用yyyy-MM-dd格式");
+        }
+        if(parsed.isBefore(LocalDate.now(APP_ZONE))){
+            throw BusinessException.badRequest("不能查询过去日期的可预约时段");
+        }
+        return parsed;
+    }
+
+    private boolean matchesPeriod(LocalTime time,String period){
+        if(!StringUtils.hasText(period))return true;
+        String normalized = period.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized){
+            case "全天","ALL" -> true;
+            case "上午","MORNING" -> time.isBefore(LocalTime.NOON);
+            case "下午","AFTERNOON" -> !time.isBefore(LocalTime.NOON)
+                    && time.isBefore(LocalTime.of(18,0));
+            case "晚上","EVENING" -> !time.isBefore(LocalTime.of(18,0));
+            default -> throw BusinessException.badRequest("period只能是上午、下午、晚上或全天");
+        };
+    }
+
     /**
      * AI 工具的统一返回包装。
      *
@@ -253,6 +322,7 @@ public class AiTools {
             // 不恰当：record 组件首字母大写会生成 TypeId() 并导致 JSON 字段命名不符合约定。
             // Long TypeId,
             Long typeId,
+            String typeName,
             String gender,
             String breed,
             String status){
@@ -262,11 +332,12 @@ public class AiTools {
          * @param x 宠物实体
          * @return 宠物工具视图
          */
-        static PetView from(Pet x){
+        static PetView from(Pet x,String typeName){
             return new PetView(
                     x.getId(),
                     x.getName(),
                     x.getTypeId(),
+                    typeName,
                     x.getGender(),
                     x.getBreed(),
                     x.getStatus());
@@ -301,6 +372,12 @@ public class AiTools {
         }
     }
 
+    /** 供模型直接回答“谁在什么时候有号”的组合视图。 */
+    public record AvailableVetView(
+            Long vetId,
+            String vetName,
+            List<SlotView> slots) {}
+
     /**
      * 供模型使用的可预约时段摘要。
      *
@@ -315,7 +392,8 @@ public class AiTools {
             Long vetId,
             LocalDateTime startTime,
             LocalDateTime endTime,
-            String status) {
+            String status,
+            String note) {
 
         /**
          * 从排班实体提取模型需要的字段。
@@ -329,7 +407,8 @@ public class AiTools {
                     x.getVetId(),
                     x.getStartTime(),
                     x.getEndTime(),
-                    x.getStatus());
+                    x.getStatus(),
+                    x.getNote());
         }
     }
 

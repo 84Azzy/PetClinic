@@ -5,6 +5,7 @@
     endpoint="/system/users"
     :columns="columns"
     :fields="fields"
+    write-authority="system:manage"
   />
 </template>
 <script setup lang="ts">

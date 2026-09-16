@@ -1,7 +1,7 @@
 <template>
   <div>
     <PageHeader title="公告管理" description="发布诊所通知、门诊安排与健康提醒"
-      ><el-button type="primary" :icon="Plus" @click="open"
+      ><el-button v-if="isManager" type="primary" :icon="Plus" @click="open"
         >新建公告</el-button
       ></PageHeader
     >
@@ -23,7 +23,7 @@
         /><el-table-column prop="status" label="状态"
           ><template #default="s"
             ><StatusTag :status="s.row.status" /></template></el-table-column
-        ><el-table-column label="操作" width="220"
+        ><el-table-column v-if="isManager" label="操作" width="220"
           ><template #default="s"
             ><el-button link type="primary" @click="edit(s.row)">编辑</el-button
             ><el-button
@@ -70,7 +70,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { Plus } from "@element-plus/icons-vue";
 import PageHeader from "@/components/PageHeader.vue";
 import StatusTag from "@/components/StatusTag.vue";
@@ -81,6 +81,13 @@ import {
   postAction,
   updateResource,
 } from "@/api/resource";
+import { useAuthStore } from "@/stores/auth";
+const auth = useAuthStore();
+const isManager = computed(
+  () =>
+    auth.hasAuthority("notice:manage") &&
+    (auth.hasRole("ADMIN") || auth.hasRole("STAFF")),
+);
 const rows = ref<any[]>([]),
   loading = ref(false),
   visible = ref(false),
@@ -94,8 +101,14 @@ const form = reactive<any>({
 const load = async () => {
   loading.value = true;
   try {
-    const r = await listResource<any>("/notices", { page: 1, size: 100 });
-    if (!Array.isArray(r.data)) rows.value = r.data.records;
+    /*
+     * TODO【新知识：同一页面按角色选择接口】
+     * 管理员/员工读取管理分页；宠主读取所有登录用户都可访问的有效公告接口。
+     * 这样不是只把按钮藏起来，而是连页面首次请求也与后端授权规则一致。
+     */
+    const endpoint = isManager.value ? "/notices" : "/notices/active";
+    const r = await listResource<any>(endpoint, { page: 1, size: 100 });
+    rows.value = Array.isArray(r.data) ? r.data : r.data.records;
   } finally {
     loading.value = false;
   }

@@ -36,7 +36,7 @@ import org.springframework.test.context.jdbc.Sql;
           + " start_time TIMESTAMP, end_time TIMESTAMP, status VARCHAR(20) NOT NULL,"
           + " note VARCHAR(255), created_at TIMESTAMP, updated_at TIMESTAMP)",
       "CREATE TABLE visit (id BIGINT AUTO_INCREMENT PRIMARY KEY, pet_id BIGINT NOT NULL,"
-          + " slot_id BIGINT NOT NULL UNIQUE, vet_id BIGINT NOT NULL, created_by BIGINT NOT NULL,"
+          + " slot_id BIGINT NOT NULL, vet_id BIGINT NOT NULL, created_by BIGINT NOT NULL,"
           + " request_id VARCHAR(64) NOT NULL UNIQUE, reason VARCHAR(500) NOT NULL,"
           + " status VARCHAR(20) NOT NULL, cancelled_at TIMESTAMP, cancel_reason VARCHAR(255),"
           + " created_at TIMESTAMP, updated_at TIMESTAMP, CHECK (reason <> 'FORCE_INSERT_FAILURE'))",

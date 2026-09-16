@@ -123,3 +123,18 @@ export interface CreateVisitPayload {
   requestId: string;
   reason: string;
 }
+
+export type PermissionType ="MENU"|"BUTTON"|"API";
+
+export interface  PermissionNode{
+  id: number;
+  parentId?: number | null;
+  code: string;
+  name: string;
+  type: PermissionType;
+  path?: string | null;
+  icon?: string | null;
+  sortOrder: number;
+  status: "ACTIVE" | "INACTIVE";
+  children: PermissionNode[];
+}

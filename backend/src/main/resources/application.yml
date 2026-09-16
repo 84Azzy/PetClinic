@@ -35,7 +35,8 @@ spring:
         options:
           model: ${DEEPSEEK_MODEL:deepseek-v4-pro}
           temperature: 0.2
-          max-tokens: 1200
+          # 工具调用会占用一部分输出额度；额度过低时模型可能完成工具调用却没有剩余 token 输出最终 JSON。
+          max-tokens: 2400
           parallel-tool-calls: false
           response-format:
             type: JSON_OBJECT

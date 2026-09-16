@@ -5,6 +5,7 @@
     endpoint="/specialties"
     :columns="columns"
     :fields="fields"
+    :write-roles="['ADMIN', 'STAFF']"
   />
 </template>
 <script setup lang="ts">

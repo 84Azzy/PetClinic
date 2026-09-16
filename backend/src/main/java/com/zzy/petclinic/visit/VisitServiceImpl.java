@@ -49,7 +49,7 @@ public class VisitServiceImpl implements VisitService {
      *   <li>返回插入后的预约。插入或后续步骤抛异常时让事务回滚，不要吞掉异常，否则时段会一直停留在 BOOKED。</li>
      * </ol>
      *
-     * <p>数据库的 request_id 和 slot_id 唯一约束是最后一道并发保护；实现时还应把对应的重复键异常转换成可读的 409。
+     * <p>{@code request_id} 唯一约束负责防止重复提交；同一时段能保留已取消的历史预约，当前占用则由排班状态的条件更新并发保护。
      *
      * @param request 已通过 Bean Validation 基础校验的创建参数
      * @return 新创建的预约，或幂等重试对应的原预约
@@ -149,8 +149,8 @@ public class VisitServiceImpl implements VisitService {
                 throw BusinessException.conflict("预约创建失败，请重试");
             }
         } catch (DuplicateKeyException exception) {
-            // request_id/slot_id 的数据库唯一约束是并发情况下的最后一道保护。
-            throw BusinessException.conflict("requestId 或预约时段已被使用");
+            // request_id 的数据库唯一约束是幂等与重复提交的最后一道保护。
+            throw BusinessException.conflict("requestId 已被使用");
         }
         return visit;
     }

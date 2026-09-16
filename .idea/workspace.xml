@@ -4,20 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="539a139e-1ba7-4acd-879c-c1d09a4e05e8" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/ai/AiConversationStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/ai/AiConversationStore.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/ai/AiToolCallRecorder.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/ai/AiToolCallRecorder.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/ai/SpringAiDeepSeekGateway.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/ai/SpringAiDeepSeekGateway.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/layout/AppLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/layout/AppLayout.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/router/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/router/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/stores/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/stores/auth.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/views/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/LoginView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/views/PetsView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/PetsView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/views/VisitsView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/views/VisitsView.vue" afterDir="false" />
+    <list default="true" id="09043387-9409-4b38-b8b4-065630cd01b4" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/frontend/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/rbac/system/controller/PermissionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/zzy/petclinic/rbac/system/controller/PermissionController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/test/java/com/zzy/petclinic/contracts/ReservedContractTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/com/zzy/petclinic/contracts/ReservedContractTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,10 +19,10 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
-  <component name="KubernetesApiProvider"><![CDATA[{
-  "isMigrated": true
-}]]></component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
       <MavenGeneralSettings>
@@ -42,35 +34,29 @@
       </MavenGeneralSettings>
     </option>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 5
-}]]></component>
-  <component name="ProjectId" id="3JE3B8nmdVNXVquhRvvGqZD0uVl" />
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="3JG8yRWKtijc6zkjM8m6MmeGfiF" />
   <component name="ProjectViewState">
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "Spring Boot.PetClinicApplication.executor": "Run",
-    "git-widget-placeholder": "master",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "MavenSettings",
-    "ts.external.directory.path": "D:\\agent-project\\PetClinic\\PetClinic\\frontend\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;MavenSettings&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="PetClinicApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="petclinic" />
@@ -90,13 +76,16 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="539a139e-1ba7-4acd-879c-c1d09a4e05e8" name="Changes" comment="" />
+      <changelist id="09043387-9409-4b38-b8b4-065630cd01b4" name="Changes" comment="" />
       <created>1744200712142</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1744200712142</updated>
       <workItem from="1744200713171" duration="94000" />
-      <workItem from="1789212263991" duration="571000" />
+      <workItem from="1789276301170" duration="675000" />
+      <workItem from="1789285861882" duration="1203000" />
+      <workItem from="1789368670419" duration="14000" />
+      <workItem from="1789368721734" duration="18000" />
     </task>
     <servers />
   </component>

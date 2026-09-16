@@ -5,6 +5,7 @@
     endpoint="/vets"
     :columns="columns"
     :fields="fields"
+    write-authority="vet:manage"
   />
 </template>
 <script setup lang="ts">

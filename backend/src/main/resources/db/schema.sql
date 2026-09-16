@@ -194,12 +194,12 @@ CREATE TABLE visit (
   cancel_reason VARCHAR(255),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT uk_visit_slot UNIQUE (slot_id),
   CONSTRAINT uk_visit_request UNIQUE (request_id),
   CONSTRAINT fk_visit_pet FOREIGN KEY (pet_id) REFERENCES pet (id),
   CONSTRAINT fk_visit_slot FOREIGN KEY (slot_id) REFERENCES vet_schedule_slot (id),
   CONSTRAINT fk_visit_vet FOREIGN KEY (vet_id) REFERENCES vet (id),
   CONSTRAINT fk_visit_user FOREIGN KEY (created_by) REFERENCES sys_user (id),
+  INDEX idx_visit_slot (slot_id),
   INDEX idx_visit_owner_status (created_by, status, id),
   INDEX idx_visit_vet_status (vet_id, status)
 ) ENGINE = InnoDB COMMENT = '预约就诊记录表';

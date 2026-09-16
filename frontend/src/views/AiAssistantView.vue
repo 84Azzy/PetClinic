@@ -2,7 +2,7 @@
   <div class="ai-page">
     <PageHeader
       title="AI 诊疗助手"
-      description="自然语言查询宠物、兽医时段和预约，并生成可确认的预约草稿"
+      description="自然语言查询宠物、兽医时段和预约，确认草稿后可直接创建预约"
     />
     <div class="ai-shell">
       <aside>
@@ -40,7 +40,7 @@
             <el-icon><MagicStick /></el-icon>
           </div>
           <div>
-            <b>宠安 AI 助手</b><span>业务查询 · 预约草稿 · 不直接写库</span>
+            <b>宠安 AI 助手</b><span>业务查询 · 预约草稿 · 确认后创建</span>
           </div>
           <el-tag type="success" effect="plain">DeepSeek 已接通</el-tag>
         </div>
@@ -51,7 +51,7 @@
             </div>
             <h3>你好，我是宠安 AI 助手</h3>
             <p>
-              我可以帮你查询宠物、兽医可用时段和预约，并生成待确认的预约草稿。
+              我可以帮你查询宠物、兽医可用时段和预约，并在你确认草稿后创建预约。
             </p>
             <div class="prompts">
               <button v-for="p in prompts" :key="p" @click="input = p">
@@ -76,7 +76,22 @@
                 <span>时段 ID：{{ m.draft.slotId }}</span>
                 <span>就诊原因：{{ m.draft.reason }}</span>
                 <p v-if="m.draft.summary">{{ m.draft.summary }}</p>
-                <el-tag type="warning" effect="plain">尚未创建，等待确认</el-tag>
+                <template v-if="m.createdVisitId">
+                  <el-tag type="success" effect="plain">
+                    已创建预约 #{{ m.createdVisitId }}
+                  </el-tag>
+                </template>
+                <template v-else>
+                  <el-tag type="warning" effect="plain">尚未创建，等待确认</el-tag>
+                  <el-button
+                    v-if="canCreateVisit"
+                    type="primary"
+                    :icon="CircleCheck"
+                    :loading="confirmingDraftKey === draftKey(m.draft)"
+                    :disabled="!!confirmingDraftKey"
+                    @click="confirmDraft(m)"
+                  >确认并创建预约</el-button>
+                </template>
               </div>
             </template>
           </div>
@@ -100,8 +115,7 @@
             :disabled="!input.trim() || sending"
             @click="send"
           /><small
-            >Ctrl + Enter 发送 · AI
-            只生成草稿，最终预约由普通业务接口确认</small
+            >Ctrl + Enter 发送 · AI 生成草稿后，请点击卡片中的确认按钮创建预约</small
           >
         </div>
       </section>
@@ -109,8 +123,14 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { Connection, Delete, Plus, Promotion } from "@element-plus/icons-vue";
+import { computed, onMounted, ref } from "vue";
+import {
+  CircleCheck,
+  Connection,
+  Delete,
+  Plus,
+  Promotion,
+} from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
 import {
@@ -121,6 +141,8 @@ import {
   type AiConversation,
   type AppointmentDraft,
 } from "@/api/ai";
+import { createVisit } from "@/api/visits";
+import { useAuthStore } from "@/stores/auth";
 
 type UiMessage = {
   id?: number;
@@ -128,8 +150,10 @@ type UiMessage = {
   content: string;
   toolName?: string;
   draft?: AppointmentDraft;
+  createdVisitId?: number;
 };
 
+const auth = useAuthStore();
 const conversationId = ref<number>();
 const conversations = ref<AiConversation[]>([]);
 const messages = ref<UiMessage[]>([]);
@@ -137,7 +161,59 @@ const input = ref("");
 const loadingConversations = ref(false);
 const loadingMessages = ref(false);
 const sending = ref(false);
+const confirmingDraftKey = ref("");
 const prompts = ["查询我的宠物", "查找明天下午可用兽医", "查看我的预约"];
+const canCreateVisit = computed(
+  () => auth.hasRole("OWNER") && auth.hasAuthority("visit:create"),
+);
+
+const draftKey = (draft: AppointmentDraft) =>
+  `${conversationId.value ?? "new"}-${draft.petId}-${draft.slotId}`;
+
+/*
+ * TODO【新知识：把 AI 建议与真实写操作分开】
+ * draft 只是普通对象，点击按钮后才调用 createVisit。后端仍会重新校验宠物归属并原子抢占时段，
+ * 所以不能把“前端已有草稿”当成预约已经成功。
+ */
+const confirmDraft = async (message: UiMessage) => {
+  const draft = message.draft;
+  if (!draft || confirmingDraftKey.value) return;
+
+  try {
+    await ElMessageBox.confirm(
+      draft.summary ||
+        `确认使用宠物 #${draft.petId} 预约时段 #${draft.slotId}，就诊原因：${draft.reason}？`,
+      "确认创建预约",
+      {
+        type: "warning",
+        confirmButtonText: "确认预约",
+        cancelButtonText: "再想想",
+      },
+    );
+  } catch {
+    return;
+  }
+
+  const key = draftKey(draft);
+  confirmingDraftKey.value = key;
+  try {
+    /*
+     * TODO【新知识：幂等键】
+     * 同一份 AI 草稿始终生成相同 requestId。即使网络超时后用户再次点击，后端也只会创建一次。
+     */
+    const requestId = `ai-${key}`;
+    const response = await createVisit({
+      petId: draft.petId,
+      slotId: draft.slotId,
+      reason: draft.reason,
+      requestId,
+    });
+    message.createdVisitId = response.data.id;
+    ElMessage.success(`预约创建成功，预约编号 #${response.data.id}`);
+  } finally {
+    confirmingDraftKey.value = "";
+  }
+};
 
 const parseDraft = (payload?: string): AppointmentDraft | undefined => {
   if (!payload) return undefined;
@@ -234,8 +310,13 @@ const send = async () => {
     );
     await loadConversations();
   } catch (error) {
-    const index = messages.value.indexOf(userMessage);
-    if (index >= 0) messages.value.splice(index, 1);
+    const responseMessage = (
+      error as { response?: { data?: { message?: string } } }
+    ).response?.data?.message;
+    messages.value.push({
+      role: "assistant",
+      content: `本次请求失败：${responseMessage || "AI 服务暂时没有返回有效内容，请重试。"}`,
+    });
     input.value = content;
   } finally {
     sending.value = false;
@@ -250,9 +331,16 @@ onMounted(async () => {
 });
 </script>
 <style scoped>
+.ai-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .ai-shell {
-  height: calc(100vh - 190px);
-  min-height: 560px;
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 240px 1fr;
   background: #fff;
@@ -261,6 +349,10 @@ onMounted(async () => {
   overflow: hidden;
 }
 .ai-shell > aside {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #f7faf9;
   border-right: 1px solid #e3e9e7;
   padding: 14px;
@@ -270,7 +362,9 @@ onMounted(async () => {
   margin-bottom: 14px;
 }
 .conversation-list {
+  flex: 1;
   min-height: 120px;
+  overflow-y: auto;
 }
 .conversation {
   display: flex;
@@ -305,8 +399,11 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 .chat-head {
+  flex-shrink: 0;
   height: 68px;
   display: flex;
   align-items: center;
@@ -343,6 +440,7 @@ onMounted(async () => {
 }
 .messages {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 28px;
 }
@@ -434,9 +532,11 @@ onMounted(async () => {
   width: fit-content;
 }
 .composer {
+  flex-shrink: 0;
   position: relative;
   padding: 14px 66px 26px 18px;
   border-top: 1px solid #edf0f2;
+  background: #fff;
 }
 .composer > .el-button {
   position: absolute;
