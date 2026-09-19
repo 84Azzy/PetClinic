@@ -3,15 +3,18 @@ package com.zzy.petclinic.rbac.authentication;
 import com.zzy.petclinic.rbac.authentication.DTO.CurrentUserResponse;
 import com.zzy.petclinic.rbac.authentication.DTO.LoginRequest;
 import com.zzy.petclinic.rbac.authentication.DTO.LoginResponse;
+import com.zzy.petclinic.rbac.authentication.DTO.RegisterRequest;
 import com.zzy.petclinic.common.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @Tag(name = "认证")
 @RestController
@@ -24,6 +27,12 @@ public class AuthController {
   @PostMapping("/login")
   public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
     return ApiResponse.ok(authService.login(request));
+  }
+
+  @PostMapping("/register")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ApiResponse<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
+    return ApiResponse.created(authService.register(request));
   }
 
   @GetMapping("/me")

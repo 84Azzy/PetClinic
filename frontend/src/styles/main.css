@@ -288,6 +288,22 @@ input {
   background: #009688 !important;
   border-color: #009688 !important;
 }
+.auth-switch {
+  margin-top: 18px;
+  color: #7b8b99;
+  font-size: 14px;
+  text-align: center;
+}
+.auth-switch a {
+  margin-left: 4px;
+  color: #009688;
+  font-weight: 600;
+  text-decoration: none;
+}
+.auth-switch a:hover {
+  color: #00796b;
+  text-decoration: underline;
+}
 .copyright {
   margin-top: 28px;
   color: #9aa7b3;

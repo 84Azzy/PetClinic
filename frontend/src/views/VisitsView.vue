@@ -416,15 +416,17 @@ const loadLookups = async () => {
 const loadMissingSlots = async (visits: Visit[]) => {
   /*
    * TODO【新知识：Set 去重与展开语法】
+   *  visits.map((visit) => visit.slotId))，遍历原数组，对每个元素执行转换
    * 多条预约可能引用同一个时段。Set 只保留唯一 slotId，避免重复请求；
    * [...new Set(...)] 再把 Set 展开回数组，方便使用 filter 和 map。
+   * filter过滤已经缓存的时段
    */
   const missingIds = [
     ...new Set(visits.map((visit) => visit.slotId)),
   ].filter((id) => !slotsById.value[id]);
 
   if (missingIds.length === 0) return;
-
+  // 先执行三个id->getSlot(id)的转换，再等待全部完成
   const responses = await Promise.all(missingIds.map((id) => getSlot(id)));
   const next = { ...slotsById.value };
   responses.forEach((response) => {

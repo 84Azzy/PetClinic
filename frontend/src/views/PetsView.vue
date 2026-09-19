@@ -83,6 +83,14 @@
       </div>
 
       <!-- 宠物表格 -->
+      <!--:data="rows"，完整写法:v-bind:data="rows" 把rows数据单向传递给组件-->
+      <!--
+            表格掌握当前行
+            ->把当前row作为参数调用插槽函数
+            ->插槽使用row完成自定义页面结构渲染
+            ->将页面结构返回给表格
+            ->表格把结构放到当前单元格
+          -->
       <el-table
           v-loading="loading"
           :data="rows"
@@ -98,6 +106,8 @@
             因此插槽内部可直接使用 row.name，等价于先接收 scope，再写 scope.row.name。
           -->
           <template #default="{ row }">
+            <!--#default="{ row } -->
+            <!--TODO作用域插槽本质上是一个渲染回调函数，传入数据（数据从遍历传入表格的数据中来），返回渲染的结构-->
             <div class="pet-cell">
               <el-avatar
                   :size="36"
@@ -413,6 +423,9 @@ const formRef = ref<FormInstance>();
  * reactive 适合保存查询条件、表单等包含多个相关字段的对象。
  * 修改时直接写 query.page，不需要 query.value.page。
  * reactive 返回的是响应式代理对象，因此通常保留原对象并修改属性，不整体替换。
+ * 不要为了图方便随意解构reactive包裹的对象，解构就是类似const {page,keyword}=query，从query中提取page和keyword变量，减少重复代码
+ * 但对reactive解构只是把值进行了复制，丢失了响应性
+ * 正确做法是直接使用变量，即query.page,query.keyword。不进行解构
  */
 const query = reactive<PetQuery>({
   page: 1,
@@ -577,6 +590,7 @@ const resetForm = () => {
   /*
    * TODO【Vue 基础：Object.assign 与响应式对象】
    * Object.assign 将新对象中的字段复制到响应式 form 中。
+   * todo Object.assign浅拷贝，只能拷贝一层，嵌套的拷贝不了，只是把变量.value的值变了，其他的都没变
    * 不能直接写 form = createEmptyForm()，
    * 因为 form 是 const，而且直接替换会破坏原响应式对象。
    * 保留同一个 reactive 代理、只更新内部属性，模板才能继续追踪这个表单。

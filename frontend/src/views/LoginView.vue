@@ -52,7 +52,11 @@
             :loading="loading"
             @click="submit"
             >进入系统</el-button
-          ></el-form
+          >
+          <div class="auth-switch">
+            还没有账号？<router-link to="/register">立即注册</router-link>
+          </div>
+        </el-form
         >
       </div>
       <div class="copyright">© 2026 宠安智能诊所 · 学习演示项目</div>
