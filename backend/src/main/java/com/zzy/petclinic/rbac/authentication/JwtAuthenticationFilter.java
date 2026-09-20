@@ -26,6 +26,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtTokenProvider tokenProvider;
   private final UserDetailsService userDetailsService;
 
+  /**
+   * 1.从请求头中提取token
+   * 2.检查SecurityContext中是否已经有用户信息了
+   * 3.读取用户名
+   * 4.重新从数据库加载用户角色和权限
+   * 5.校验token和用户状态
+   * 6.创建认证对象并附加请求细节
+   * 7.放入SecurityContext
+   * @param request
+   * @param response
+   * @param filterChain
+   * @throws ServletException
+   * @throws IOException
+   */
   @Override
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

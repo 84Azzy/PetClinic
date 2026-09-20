@@ -99,8 +99,8 @@ public class AiAssistantServiceImpl implements AiAssistantService{
         }
         // 不恰当：方法校验的是「结构化回复」，不是动作 structure。
         // validateStructureReply(reply);
-        reply = validateStructuredReply(reply);
-        reply = validateDraftOrFallback(reply);
+        reply = validateStructuredReply(reply); //校验结构格式
+        reply = validateDraftOrFallback(reply); //校验结构数据，调用service进行
         if(conversation==null){
             // 不恰当：titleForm 更像「标题表单」，这里实际表示「从消息得到标题」。
             // conversation=store.createTurn(userId,titleForm(request.message()),request.message(),toolUses,reply);
