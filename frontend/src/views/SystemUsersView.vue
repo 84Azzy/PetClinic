@@ -1,7 +1,7 @@
 <template>
   <ResourceCrud
     title="系统用户"
-    description="RBAC 留白：维护账号并分配角色"
+    description="维护登录账号、诊所身份与联系资料。"
     endpoint="/system/users"
     :columns="columns"
     :fields="fields"
@@ -13,10 +13,15 @@ import ResourceCrud, {
   type Column,
   type Field,
 } from "@/components/ResourceCrud.vue";
+import { accountName } from "@/utils/clinic";
 const columns: Column[] = [
   { key: "username", label: "账号" },
   { key: "displayName", label: "姓名" },
-  { key: "accountType", label: "账户类型" },
+  {
+    key: "accountType",
+    label: "账户身份",
+    formatter: (value) => accountName(String(value)),
+  },
   { key: "phone", label: "手机" },
   { key: "status", label: "状态" },
 ];
@@ -36,6 +41,6 @@ const fields: Field[] = [
       { label: "宠主", value: "OWNER" },
     ],
   },
-  { key: "password", label: "初始密码" },
+  { key: "password", label: "密码（编辑时留空保留原密码）", type: "password" },
 ];
 </script>

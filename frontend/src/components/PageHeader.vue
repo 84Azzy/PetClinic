@@ -1,42 +1,50 @@
 <template>
-  <div class="page-header">
+  <header class="page-header">
     <div>
-      <div class="eyebrow teal">{{ eyebrow }}</div>
-      <h2>{{ title }}</h2>
-      <p>{{ description }}</p>
+      <h1>{{ title }}</h1>
+      <p v-if="description">{{ description }}</p>
     </div>
-    <slot />
-  </div>
+    <div v-if="$slots.default" class="page-actions"><slot /></div>
+  </header>
 </template>
 <script setup lang="ts">
-withDefaults(
-  defineProps<{ title: string; description: string; eyebrow?: string }>(),
-  { eyebrow: "PET CLINIC MANAGEMENT" },
-);
+defineProps<{ title: string; description?: string; eyebrow?: string }>();
 </script>
 <style scoped>
 .page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
 }
-.page-header h2 {
-  margin: 5px 0;
-  font-size: 24px;
+h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
-.page-header p {
+p {
+  font-size: 14px;
+  color: var(--clinic-muted);
   margin: 0;
-  color: #87939f;
-  font-size: 13px;
 }
-@media (max-width: 640px) {
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+@media (max-width: 639px) {
   .page-header {
-    align-items: flex-start;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 16px;
   }
-  .page-header p {
-    display: none;
+  h1 {
+    font-size: 24px;
+  }
+  p {
+    font-size: 14px;
   }
 }
 </style>

@@ -1,11 +1,12 @@
 <template>
   <ResourceCrud
     title="兽医管理"
-    description="维护执业兽医资料与接诊状态"
+    description="查看执业资料与诊疗简介，维护接诊团队。"
     endpoint="/vets"
     :columns="columns"
     :fields="fields"
     write-authority="vet:manage"
+    delete-label="停用"
   />
 </template>
 <script setup lang="ts">

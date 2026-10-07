@@ -13,7 +13,7 @@ const children: RouteRecordRaw[] = [
   {
     path: "dashboard",
     component: () => import("@/views/DashboardView.vue"),
-    meta: { title: "数据看板", icon: "DataAnalysis" },
+    meta: { title: "诊所工作台", icon: "DataAnalysis" },
   },
   {
     path: "owners",
@@ -63,7 +63,7 @@ const children: RouteRecordRaw[] = [
   {
     path: "notices",
     component: () => import("@/views/NoticesView.vue"),
-    meta: { title: "公告管理", icon: "Bell" },
+    meta: { title: "诊所公告", icon: "Bell" },
   },
   {
     path: "feedback",
@@ -72,8 +72,8 @@ const children: RouteRecordRaw[] = [
   },
   {
     path: "system/users",
-    component: () => import("@/views/SystemUsersView.vue"),
-    meta: { title: "系统用户", icon: "UserFilled" },
+    component: () => import("@/views/SystemWorkspaceView.vue"),
+    meta: { title: "系统管理", icon: "UserFilled" },
   },
   {
     path: "system/roles",
@@ -126,7 +126,7 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  document.title = `${String(to.meta.title || "管理平台")} · zzy的黑心诊所`;
+  document.title = `${String(to.meta.title || "管理平台")} · 宠安智能诊所`;
   const auth = useAuthStore();
 
   if (auth.token && !auth.restored) await auth.restoreSession();

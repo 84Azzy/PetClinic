@@ -2,33 +2,60 @@
   <div class="ai-page">
     <PageHeader
       title="AI 诊疗助手"
-      description="自然语言查询宠物、兽医时段和预约，确认草稿后可直接创建预约"
-    />
+      description="查询诊疗安排，整理预约草稿，每一步都由你确认。"
+      ><el-button
+        class="mobile-history-button"
+        @click="historyOpen = !historyOpen"
+        >{{ historyOpen ? "收起历史" : "历史会话" }}</el-button
+      ></PageHeader
+    >
     <div class="ai-shell">
       <aside>
         <div class="new-chat">
-          <el-button type="primary" :icon="Plus" @click="newChat"
+          <el-button
+            type="primary"
+            :icon="Plus"
+            :disabled="sending || !!confirmingDraftKey"
+            @click="newChat"
             >新对话</el-button
           >
         </div>
         <div v-loading="loadingConversations" class="conversation-list">
+          <PageState
+            v-if="conversationsError"
+            kind="error"
+            title="会话加载失败"
+            @retry="loadConversations"
+          />
           <div
             v-for="c in conversations"
             :key="c.id"
             :class="['conversation', { active: c.id === conversationId }]"
-            @click="selectConversation(c.id)"
+            role="group"
           >
-            <el-icon><ChatDotRound /></el-icon><span>{{ c.title }}</span>
+            <button
+              class="conversation-select"
+              :aria-pressed="c.id === conversationId"
+              :disabled="sending || !!confirmingDraftKey"
+              @click="selectConversation(c.id)"
+            >
+              <ClinicIcon name="chat" /><span>{{ c.title }}</span>
+            </button>
             <el-button
               text
               circle
               :icon="Delete"
-              title="删除会话"
+              :aria-label="'删除会话：' + c.title"
+              :disabled="sending || !!confirmingDraftKey"
               @click.stop="removeConversation(c)"
             />
           </div>
           <el-empty
-            v-if="!loadingConversations && conversations.length === 0"
+            v-if="
+              !loadingConversations &&
+              !conversationsError &&
+              conversations.length === 0
+            "
             description="暂无历史会话"
             :image-size="64"
           />
@@ -42,10 +69,36 @@
           <div>
             <b>宠安 AI 助手</b><span>业务查询 · 预约草稿 · 确认后创建</span>
           </div>
-          <el-tag type="success" effect="plain">DeepSeek 已接通</el-tag>
+          <el-tag
+            :type="
+              connection === '响应正常'
+                ? 'success'
+                : connection === '连接异常'
+                  ? 'danger'
+                  : 'info'
+            "
+            >{{ sending ? "正在请求" : connection }}</el-tag
+          >
         </div>
-        <div v-loading="loadingMessages" class="messages">
-          <div v-if="!loadingMessages && messages.length === 0" class="welcome">
+        <div
+          ref="messagesRef"
+          v-loading="loadingMessages"
+          class="messages"
+          role="log"
+          aria-label="会话消息"
+          aria-live="polite"
+          aria-relevant="additions"
+        >
+          <PageState
+            v-if="messagesError"
+            kind="error"
+            title="消息加载失败"
+            @retry="conversationId && selectConversation(conversationId)"
+          />
+          <div
+            v-if="!loadingMessages && !messagesError && messages.length === 0"
+            class="welcome"
+          >
             <div class="ai-avatar large">
               <el-icon><MagicStick /></el-icon>
             </div>
@@ -66,37 +119,61 @@
           >
             <div v-if="m.role === 'tool'" class="tool-message">
               <el-icon><Connection /></el-icon>
-              已调用业务工具：{{ m.toolName }}
+              {{ toolLabel(m.toolName) }}
             </div>
             <template v-else>
-              <div class="message">{{ m.content }}</div>
+              <div :class="['message', { failure: m.failure }]">
+                {{ m.content }}
+              </div>
               <div v-if="m.draft" class="draft-card">
                 <b>预约草稿</b>
-                <span>宠物 ID：{{ m.draft.petId }}</span>
-                <span>时段 ID：{{ m.draft.slotId }}</span>
+                <span
+                  >就诊宠物：{{
+                    draftPetNames[m.draft.petId] || "宠物 #" + m.draft.petId
+                  }}</span
+                >
+                <span
+                  >预约时段：{{
+                    draftSlotLabels[m.draft.slotId] || "时段 #" + m.draft.slotId
+                  }}</span
+                >
                 <span>就诊原因：{{ m.draft.reason }}</span>
                 <p v-if="m.draft.summary">{{ m.draft.summary }}</p>
                 <template v-if="m.createdVisitId">
                   <el-tag type="success" effect="plain">
                     已创建预约 #{{ m.createdVisitId }}
                   </el-tag>
+                  <StatusTag
+                    v-if="m.createdVisitStatus"
+                    :status="m.createdVisitStatus"
+                  />
+                  <el-button
+                    v-if="auth.canVisitPath('/visits')"
+                    plain
+                    @click="$router.push('/visits?visitId=' + m.createdVisitId)"
+                    >查看预约</el-button
+                  >
                 </template>
                 <template v-else>
-                  <el-tag type="warning" effect="plain">尚未创建，等待确认</el-tag>
+                  <el-tag :type="m.draftError ? 'danger' : 'warning'">{{
+                    m.draftError ? "创建失败，可重试" : "尚未创建，等待确认"
+                  }}</el-tag>
+                  <p v-if="m.draftError" role="alert">{{ m.draftError }}</p>
                   <el-button
                     v-if="canCreateVisit"
                     type="primary"
                     :icon="CircleCheck"
                     :loading="confirmingDraftKey === draftKey(m.draft)"
-                    :disabled="!!confirmingDraftKey"
+                    :disabled="!!confirmingDraftKey || sending"
                     @click="confirmDraft(m)"
-                  >确认并创建预约</el-button>
+                    >确认并创建预约</el-button
+                  >
                 </template>
               </div>
             </template>
           </div>
           <div v-if="sending" class="message-row assistant">
-            <div class="message thinking">DeepSeek 正在查询并整理结果…</div>
+            <div class="message thinking">正在查询并整理结果…</div>
           </div>
         </div>
         <div class="composer">
@@ -105,34 +182,92 @@
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 4 }"
             placeholder="例如：给我的猫找明天下午的外科医生"
+            aria-label="给诊疗助手发送消息"
             :disabled="sending"
             @keydown.ctrl.enter.prevent="send"
           /><el-button
             type="primary"
             circle
             :icon="Promotion"
+            aria-label="发送消息"
             :loading="sending"
             :disabled="!input.trim() || sending"
             @click="send"
           /><small
-            >Ctrl + Enter 发送 · AI 生成草稿后，请点击卡片中的确认按钮创建预约</small
+            >Ctrl + Enter 发送 · AI
+            生成草稿后，请点击卡片中的确认按钮创建预约</small
           >
         </div>
       </section>
     </div>
+    <el-drawer
+      v-model="historyOpen"
+      title="历史会话"
+      direction="ltr"
+      size="300px"
+      append-to-body
+    >
+      <el-button
+        type="primary"
+        :icon="Plus"
+        :disabled="sending || !!confirmingDraftKey"
+        style="width: 100%; margin-bottom: 20px"
+        @click="newChat"
+        >新对话</el-button
+      >
+      <PageState v-if="loadingConversations" kind="loading" /><PageState
+        v-else-if="conversationsError"
+        kind="error"
+        title="会话加载失败"
+        @retry="loadConversations"
+      /><PageState
+        v-else-if="!conversations.length"
+        kind="empty"
+        title="暂无历史会话"
+        description="发送消息后，会话会显示在这里。"
+      />
+      <div
+        v-for="c in conversations"
+        v-else
+        :key="c.id"
+        :class="['conversation', { active: c.id === conversationId }]"
+      >
+        <button
+          class="conversation-select"
+          :aria-pressed="c.id === conversationId"
+          :disabled="sending || !!confirmingDraftKey"
+          @click="selectConversation(c.id)"
+        >
+          <ClinicIcon name="chat" /><span>{{ c.title }}</span></button
+        ><el-button
+          text
+          circle
+          :icon="Delete"
+          :aria-label="'删除会话：' + c.title"
+          :disabled="sending || !!confirmingDraftKey"
+          @click="removeConversation(c)"
+        />
+      </div>
+    </el-drawer>
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   CircleCheck,
   Connection,
   Delete,
   Plus,
   Promotion,
+  MagicStick,
 } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
+import PageState from "@/components/PageState.vue";
+import ClinicIcon from "@/components/ClinicIcon.vue";
+import StatusTag from "@/components/StatusTag.vue";
+import { getResource, listResource } from "@/api/resource";
+import { formatDate, type ClinicRow } from "@/utils/clinic";
 import {
   deleteAiConversation,
   listAiConversations,
@@ -151,6 +286,9 @@ type UiMessage = {
   toolName?: string;
   draft?: AppointmentDraft;
   createdVisitId?: number;
+  createdVisitStatus?: string;
+  failure?: boolean;
+  draftError?: string;
 };
 
 const auth = useAuthStore();
@@ -162,13 +300,69 @@ const loadingConversations = ref(false);
 const loadingMessages = ref(false);
 const sending = ref(false);
 const confirmingDraftKey = ref("");
+const connection = ref("连接待验证"),
+  conversationsError = ref(false),
+  messagesError = ref(false),
+  historyOpen = ref(false),
+  messagesRef = ref<HTMLElement>();
+const draftPetNames = ref<Record<number, string>>({}),
+  draftSlotLabels = ref<Record<number, string>>({});
+async function loadDraftLabels(draft?: AppointmentDraft) {
+  if (!draft) return;
+  await Promise.allSettled([
+    auth.hasAuthority("pet:manage")
+      ? getResource<ClinicRow>("/pets", draft.petId).then(
+          (r) => (draftPetNames.value[draft.petId] = r.data.name),
+        )
+      : Promise.resolve(),
+    getResource<ClinicRow>("/slots", draft.slotId).then(
+      (r) =>
+        (draftSlotLabels.value[draft.slotId] =
+          formatDate(r.data.startTime, true) +
+          " – " +
+          r.data.endTime.slice(11, 16)),
+    ),
+  ]);
+}
+watch([() => messages.value.length, sending], async () => {
+  await nextTick();
+  if (messagesRef.value)
+    messagesRef.value.scrollTop = messagesRef.value.scrollHeight;
+});
 const prompts = ["查询我的宠物", "查找明天下午可用兽医", "查看我的预约"];
+const toolLabel = (name?: string) =>
+  ({
+    listMyPets: "已查询宠物档案",
+    findVets: "已查询接诊兽医",
+    findAvailableAppointments: "已查询可预约安排",
+    findAvailableSlots: "已查询可用时段",
+    listMyVisits: "已查询预约记录",
+    buildAppointmentDraft: "已整理预约草稿",
+  })[name || ""] || "业务查询已完成";
 const canCreateVisit = computed(
   () => auth.hasRole("OWNER") && auth.hasAuthority("visit:create"),
 );
 
 const draftKey = (draft: AppointmentDraft) =>
   `${conversationId.value ?? "new"}-${draft.petId}-${draft.slotId}`;
+
+async function loadDraftState(message: UiMessage) {
+  if (!message.draft || !auth.hasAuthority("visit:manage")) return;
+  const requestId = "ai-" + draftKey(message.draft);
+  const response = await listResource<ClinicRow>("/visits", {
+    page: 1,
+    size: 10,
+    keyword: requestId,
+  });
+  const records = Array.isArray(response.data)
+    ? response.data
+    : response.data.records;
+  const visit = records.find((row) => row.requestId === requestId);
+  if (visit) {
+    message.createdVisitId = visit.id;
+    message.createdVisitStatus = visit.status;
+  }
+}
 
 /*
  * TODO【新知识：把 AI 建议与真实写操作分开】
@@ -177,7 +371,13 @@ const draftKey = (draft: AppointmentDraft) =>
  */
 const confirmDraft = async (message: UiMessage) => {
   const draft = message.draft;
-  if (!draft || confirmingDraftKey.value) return;
+  if (
+    !draft ||
+    confirmingDraftKey.value ||
+    message.createdVisitId ||
+    !canCreateVisit.value
+  )
+    return;
 
   try {
     await ElMessageBox.confirm(
@@ -209,7 +409,13 @@ const confirmDraft = async (message: UiMessage) => {
       requestId,
     });
     message.createdVisitId = response.data.id;
+    message.createdVisitStatus = response.data.status;
+    message.draftError = undefined;
     ElMessage.success(`预约创建成功，预约编号 #${response.data.id}`);
+  } catch (error) {
+    message.draftError =
+      (error as { response?: { data?: { message?: string } } }).response?.data
+        ?.message || "创建预约失败，请确认时段仍可用后重试。";
   } finally {
     confirmingDraftKey.value = "";
   }
@@ -230,15 +436,22 @@ const parseDraft = (payload?: string): AppointmentDraft | undefined => {
 
 const loadConversations = async () => {
   loadingConversations.value = true;
+  conversationsError.value = false;
   try {
     conversations.value = (await listAiConversations()).data;
+  } catch {
+    conversationsError.value = true;
   } finally {
     loadingConversations.value = false;
   }
 };
 
 const selectConversation = async (id: number) => {
+  if (sending.value || confirmingDraftKey.value) return;
   conversationId.value = id;
+  historyOpen.value = false;
+  messagesError.value = false;
+  messages.value = [];
   loadingMessages.value = true;
   try {
     const history = (await listAiMessages(id)).data;
@@ -253,15 +466,26 @@ const selectConversation = async (id: number) => {
           ? parseDraft(message.toolPayload)
           : undefined,
     }));
+    await Promise.allSettled(
+      messages.value.flatMap((m) => [
+        loadDraftLabels(m.draft),
+        loadDraftState(m),
+      ]),
+    );
+  } catch {
+    if (conversationId.value === id) messagesError.value = true;
   } finally {
     if (conversationId.value === id) loadingMessages.value = false;
   }
 };
 
 const newChat = () => {
+  if (sending.value || confirmingDraftKey.value) return;
   conversationId.value = undefined;
   messages.value = [];
   loadingMessages.value = false;
+  messagesError.value = false;
+  historyOpen.value = false;
 };
 
 const removeConversation = async (conversation: AiConversation) => {
@@ -274,16 +498,24 @@ const removeConversation = async (conversation: AiConversation) => {
   } catch {
     return;
   }
-  await deleteAiConversation(conversation.id);
-  const removedCurrent = conversationId.value === conversation.id;
-  await loadConversations();
-  if (removedCurrent) newChat();
-  ElMessage.success("会话已删除");
+  try {
+    await deleteAiConversation(conversation.id);
+    const removedCurrent = conversationId.value === conversation.id;
+    await loadConversations();
+    if (removedCurrent) newChat();
+    ElMessage.success("会话已删除");
+  } catch {}
 };
 
 const send = async () => {
   const content = input.value.trim();
-  if (!content || sending.value) return;
+  if (
+    !content ||
+    sending.value ||
+    confirmingDraftKey.value ||
+    loadingMessages.value
+  )
+    return;
   const userMessage: UiMessage = { role: "user", content };
   messages.value.push(userMessage);
   input.value = "";
@@ -296,6 +528,7 @@ const send = async () => {
       })
     ).data;
     conversationId.value = response.conversationId;
+    connection.value = "响应正常";
     messages.value.push(
       ...response.toolsUsed.map<UiMessage>((toolName) => ({
         role: "tool",
@@ -308,14 +541,17 @@ const send = async () => {
         draft: response.draft,
       },
     );
+    await loadDraftLabels(response.draft);
     await loadConversations();
   } catch (error) {
+    connection.value = "连接异常";
     const responseMessage = (
       error as { response?: { data?: { message?: string } } }
     ).response?.data?.message;
     messages.value.push({
       role: "assistant",
       content: `本次请求失败：${responseMessage || "AI 服务暂时没有返回有效内容，请重试。"}`,
+      failure: true,
     });
     input.value = content;
   } finally {
@@ -333,33 +569,31 @@ onMounted(async () => {
 <style scoped>
 .ai-page {
   height: 100%;
-  min-height: 0;
+  min-height: 560px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 .ai-shell {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
   background: #fff;
-  border: 1px solid #e2e8ed;
-  border-radius: 14px;
+  border: 1px solid var(--clinic-border);
+  border-radius: 10px;
   overflow: hidden;
 }
 .ai-shell > aside {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #f7faf9;
-  border-right: 1px solid #e3e9e7;
-  padding: 14px;
+  background: #f8faf8;
+  border-right: 1px solid var(--clinic-border);
+  padding: 16px;
 }
 .new-chat .el-button {
   width: 100%;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .conversation-list {
   flex: 1;
@@ -369,31 +603,45 @@ onMounted(async () => {
 .conversation {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 11px;
-  border-radius: 8px;
-  color: #65747e;
-  font-size: 13px;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--clinic-muted);
+  margin-bottom: 4px;
+}
+.conversation-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  border: 0;
+  padding: 12px 8px;
+  background: none;
+  text-align: left;
   cursor: pointer;
 }
-.conversation span {
-  flex: 1;
+.conversation-select svg {
+  width: 18px;
+  flex: none;
+}
+.conversation-select span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .conversation .el-button {
-  opacity: 0;
   color: inherit;
-}
-.conversation:hover .el-button,
-.conversation.active .el-button {
-  opacity: 1;
 }
 .conversation.active,
 .conversation:hover {
-  background: #e5f6f3;
-  color: #007f73;
+  background: #eaf4ee;
+  color: var(--clinic-primary);
+}
+.conversation button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 .chat {
   display: flex;
@@ -404,158 +652,220 @@ onMounted(async () => {
 }
 .chat-head {
   flex-shrink: 0;
-  height: 68px;
+  min-height: 80px;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 0 20px;
-  border-bottom: 1px solid #edf0f2;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--clinic-border);
 }
-.chat-head div:nth-child(2) {
+.chat-head > div:nth-child(2) {
   flex: 1;
 }
-.chat-head b,
-.chat-head span {
+.chat-head b {
   display: block;
+  font-size: 16px;
 }
-.chat-head span {
-  font-size: 11px;
-  color: #93a0aa;
-  margin-top: 3px;
+.chat-head div > span {
+  display: block;
+  font-size: 12px;
+  color: var(--clinic-muted);
+  margin-top: 4px;
 }
 .ai-avatar {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(135deg, #00bfae, #007f73);
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 6px;
+  color: var(--clinic-primary);
+  background: #eaf4ee;
 }
 .ai-avatar.large {
-  width: 54px;
-  height: 54px;
+  width: 56px;
+  height: 56px;
   margin: auto;
   font-size: 24px;
 }
 .messages {
   flex: 1;
-  min-height: 0;
+  min-height: 260px;
   overflow: auto;
-  padding: 28px;
+  padding: 24px;
 }
 .welcome {
   text-align: center;
   max-width: 620px;
-  margin: 50px auto;
+  margin: 48px auto;
 }
 .welcome h3 {
-  margin: 16px 0 7px;
+  margin: 20px 0 12px;
+  font-size: 20px;
 }
 .welcome p {
-  color: #80909c;
+  color: var(--clinic-muted);
+  line-height: 1.9;
 }
 .prompts {
   display: flex;
   justify-content: center;
-  gap: 9px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-top: 25px;
+  margin-top: 24px;
 }
 .prompts button {
-  border: 1px solid #d9e6e3;
-  border-radius: 20px;
+  border: 1px solid var(--clinic-border);
+  border-radius: 6px;
   background: #fff;
-  color: #56706b;
-  padding: 9px 14px;
+  color: var(--clinic-primary);
+  padding: 12px 16px;
   cursor: pointer;
 }
 .prompts button:hover {
-  border-color: #009688;
-  color: #007f73;
+  border-color: var(--clinic-primary);
+  background: var(--clinic-canvas);
 }
 .message-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin: 10px 0;
+  margin: 16px 0;
 }
 .message-row.user {
   align-items: flex-end;
 }
 .message-row .message {
-  max-width: 70%;
-  padding: 11px 14px;
-  border-radius: 12px;
+  max-width: 85%;
+  padding: 16px;
+  border-radius: 10px;
   white-space: pre-wrap;
-  line-height: 1.65;
+  overflow-wrap: anywhere;
+  line-height: 1.85;
 }
 .message-row.user .message {
-  background: #009688;
+  background: var(--clinic-primary);
   color: #fff;
 }
 .message-row.assistant .message {
-  background: #f1f5f4;
-  color: #31433f;
+  background: #f3f7f5;
+  color: var(--clinic-ink);
+}
+.message-row .message.failure {
+  background: #fcf0f0;
+  color: #a34444;
 }
 .message.thinking {
-  color: #80908c;
+  color: var(--clinic-muted);
 }
 .tool-message {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 4px 10px;
-  color: #7d8e89;
+  gap: 8px;
+  margin: 0 8px;
+  color: var(--clinic-muted);
   font-size: 12px;
 }
 .draft-card {
   display: grid;
-  gap: 7px;
-  width: min(440px, 70%);
-  margin-top: 8px;
-  padding: 14px 16px;
-  border: 1px solid #d9e8e5;
-  border-radius: 12px;
-  background: #fbfefd;
-  color: #50625e;
-  font-size: 13px;
+  gap: 12px;
+  width: min(480px, 100%);
+  margin-top: 12px;
+  padding: 20px;
+  border: 1px solid #c8ddd0;
+  border-radius: 10px;
+  background: #fbfdfb;
+  color: var(--clinic-ink);
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
 .draft-card b {
-  color: #007f73;
-  font-size: 14px;
+  color: var(--clinic-primary);
+  font-size: 16px;
 }
 .draft-card p {
-  margin: 2px 0;
+  margin: 0;
+  white-space: pre-wrap;
 }
 .draft-card .el-tag {
   width: fit-content;
 }
+.draft-card .el-button {
+  margin: 0;
+}
 .composer {
   flex-shrink: 0;
   position: relative;
-  padding: 14px 66px 26px 18px;
-  border-top: 1px solid #edf0f2;
+  padding: 16px 76px 48px 24px;
+  border-top: 1px solid var(--clinic-border);
   background: #fff;
 }
 .composer > .el-button {
   position: absolute;
-  right: 20px;
-  top: 22px;
+  right: 24px;
+  top: 24px;
 }
 .composer small {
   position: absolute;
-  left: 20px;
-  bottom: 5px;
-  color: #a0abb3;
-  font-size: 10px;
+  left: 24px;
+  right: 24px;
+  bottom: 12px;
+  color: var(--clinic-muted);
+  font-size: 12px;
 }
-@media (max-width: 760px) {
+.mobile-history-button {
+  display: none;
+}
+@media (max-width: 767px) {
+  .ai-page {
+    min-height: 640px;
+  }
   .ai-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
   }
   .ai-shell > aside {
     display: none;
+    max-height: 240px;
+    border-right: 0;
+    border-bottom: 1px solid var(--clinic-border);
+  }
+  .ai-shell > aside.mobile-visible {
+    display: flex;
+  }
+  .ai-shell:has(aside.mobile-visible) {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .mobile-history-button {
+    display: inline-flex;
+  }
+  .chat-head {
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+  .chat-head > .el-tag {
+    margin-left: 52px;
+  }
+  .messages {
+    padding: 16px;
+  }
+  .message-row .message {
+    max-width: 95%;
+  }
+  .composer {
+    padding: 16px 64px 64px 16px;
+  }
+  .composer > .el-button {
+    right: 16px;
+  }
+  .composer small {
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    font-size: 12px;
+  }
+  .welcome {
+    margin: 24px auto;
   }
 }
 </style>

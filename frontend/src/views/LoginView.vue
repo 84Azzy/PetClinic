@@ -1,69 +1,71 @@
 <template>
   <div class="login-page">
-    <div class="login-visual">
-      <div class="visual-copy">
-        <div class="eyebrow">SMART PET CLINIC</div>
-        <h1>让每一次诊疗<br /><span>更安心、更高效</span></h1>
-        <p>宠物档案、兽医排班、预约就诊与健康记录一站式管理。</p>
-        <div class="feature-row">
-          <div><b>24h</b><small>档案随时可查</small></div>
-          <div><b>4+</b><small>核心诊疗专科</small></div>
-          <div><b>100%</b><small>数据闭环管理</small></div>
-        </div>
-      </div>
-      <div class="paw paw-one">●</div>
-      <div class="paw paw-two">●</div>
-    </div>
-    <div class="login-panel">
+    <AuthVisual />
+    <section class="login-panel">
       <div class="login-card">
-        <div class="mobile-brand"><span>P</span>宠安诊所</div>
-        <div class="eyebrow teal">WELCOME BACK</div>
-        <h2>登录管理平台</h2>
-        <p>使用演示账号进入宠物诊疗工作台</p>
+        <ClinicBrand class="mobile-brand" />
+        <h2>欢迎回到宠安</h2>
+        <p>登录账号，继续你的诊疗工作。</p>
         <el-form
           ref="formRef"
           :model="form"
           :rules="rules"
           label-position="top"
-          @keyup.enter="submit"
-          ><el-form-item label="账号" prop="username"
+          @submit.prevent="submit"
+        >
+          <el-form-item label="账号" prop="username"
             ><el-input
               v-model="form.username"
               size="large"
               placeholder="请输入账号"
-              :prefix-icon="User" /></el-form-item
-          ><el-form-item label="密码" prop="password"
+              autocomplete="username"
+              :prefix-icon="User"
+          /></el-form-item>
+          <el-form-item label="密码" prop="password"
             ><el-input
               v-model="form.password"
               size="large"
               type="password"
               show-password
               placeholder="请输入密码"
+              autocomplete="current-password"
               :prefix-icon="Lock"
           /></el-form-item>
           <div class="demo-hint">
             <span>演示账号：admin / staff / owner_a</span
-            ><span>密码：123456</span>
+            ><span>演示密码：123456</span>
           </div>
+          <el-alert
+            v-if="submitError"
+            :title="submitError"
+            type="error"
+            :closable="false"
+            show-icon
+            class="form-alert"
+          />
           <el-button
+            native-type="submit"
             type="primary"
             size="large"
             class="login-button"
             :loading="loading"
-            @click="submit"
-            >进入系统</el-button
+            :disabled="loading"
+            >{{ loading ? "正在登录…" : "进入诊所工作台" }}</el-button
           >
           <div class="auth-switch">
-            还没有账号？<router-link to="/register">立即注册</router-link>
+            第一次使用？<router-link to="/register"
+              >注册宠物主人账号</router-link
+            >
           </div>
-        </el-form
-        >
+        </el-form>
       </div>
-      <div class="copyright">© 2026 宠安智能诊所 · 学习演示项目</div>
-    </div>
+      <p class="copyright">© 2026 宠安智能诊所 · 作品集演示</p>
+    </section>
   </div>
 </template>
 <script setup lang="ts">
+import AuthVisual from "@/components/AuthVisual.vue";
+import ClinicBrand from "@/components/ClinicBrand.vue";
 import { reactive, ref } from "vue";
 import { User, Lock } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
@@ -72,6 +74,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
 const formRef = ref<FormInstance>();
 const loading = ref(false);
+const submitError = ref("");
 const form = reactive({ username: "admin", password: "123456" });
 const rules: FormRules = {
   username: [{ required: true, message: "请输入账号", trigger: "blur" }],
@@ -80,8 +83,11 @@ const rules: FormRules = {
 const auth = useAuthStore();
 const router = useRouter();
 const submit = async () => {
+  if (loading.value) return;
   if (!(await formRef.value?.validate().catch(() => false))) return;
+  if (loading.value) return;
   loading.value = true;
+  submitError.value = "";
   try {
     const res = await login(form);
     // 登录成功后继续加载后端权限树，菜单和按钮准备好以后再进入业务页。
@@ -94,11 +100,15 @@ const submit = async () => {
      * → 回到 /pets
      */
     const redirect =
-        typeof router.currentRoute.value.query.redirect === "string"
-            ? router.currentRoute.value.query.redirect
-            : auth.firstMenuPath || "/profile";
+      typeof router.currentRoute.value.query.redirect === "string"
+        ? router.currentRoute.value.query.redirect
+        : auth.firstMenuPath || "/profile";
 
     await router.push(redirect);
+  } catch (error) {
+    submitError.value =
+      (error as { response?: { data?: { message?: string } } }).response?.data
+        ?.message || "暂时无法登录，请检查网络后重试";
   } finally {
     loading.value = false;
   }

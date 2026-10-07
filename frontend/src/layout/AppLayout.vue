@@ -1,125 +1,223 @@
 <template>
-  <div class="app-shell">
-    <aside :class="['sidebar', { collapsed }]">
-      <div class="brand">
-        <div class="brand-mark">P</div>
-        <div v-if="!collapsed">
-          <strong>黑心诊所</strong><small>ZZY PET CLINIC</small>
+  <div class="app-shell" @keydown.esc="closeNav">
+    <a href="#main-content" class="skip-link">跳到页面内容</a>
+    <button
+      v-if="mobile && navOpen"
+      class="nav-backdrop"
+      aria-label="关闭导航"
+      @click="closeNav"
+    />
+    <aside
+      ref="sidebarRef"
+      :class="[
+        'sidebar',
+        { collapsed: !mobile && collapsed, 'mobile-open': mobile && navOpen },
+      ]"
+      :inert="mobile && !navOpen ? true : undefined"
+      aria-label="主导航"
+      @keydown="trapFocus"
+    >
+      <ClinicBrand :compact="!mobile && collapsed" />
+      <div class="sidebar-nav">
+        <PageState v-if="auth.menuLoading" kind="loading" />
+        <p v-else-if="auth.menuLoaded && !menuNodes.length" class="muted">
+          当前账号暂无菜单权限
+        </p>
+        <div v-for="group in groups" :key="group.label" class="nav-group">
+          <p v-if="!collapsed || mobile" class="nav-group-label">
+            {{ group.label }}
+          </p>
+          <el-menu
+            :collapse="!mobile && collapsed"
+            :default-active="$route.path"
+            router
+            @select="closeNav"
+          >
+            <PermissionMenuNode
+              v-for="node in group.nodes"
+              :key="node.id"
+              :node="node"
+            />
+          </el-menu>
         </div>
       </div>
-
-      <div v-if="auth.menuLoading" class="menu-state">正在加载菜单...</div>
-      <div
-        v-else-if="auth.menuLoaded && menuNodes.length === 0"
-        class="menu-state"
-      >
-        当前账号暂无菜单权限
+      <div v-if="!collapsed || mobile" class="sidebar-footer">
+        <span>宠安智能诊所</span>
       </div>
-
-      <el-menu
-        v-else
-        :collapse="collapsed"
-        :default-active="$route.path"
-        router
-        background-color="#304156"
-        text-color="#cbd5e1"
-        active-text-color="#5eead4"
-      >
-        <PermissionMenuNode
-          v-for="node in menuNodes"
-          :key="node.id"
-          :node="node"
-        />
-      </el-menu>
-
-      <div v-if="!collapsed" class="sidebar-tip">健康相伴，安心托付</div>
     </aside>
-
-    <main class="workspace">
+    <div class="workspace">
       <header class="topbar">
         <div class="topbar-left">
-          <el-button text circle @click="collapsed = !collapsed">
-            <el-icon><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
-          </el-button>
-          <div>
-            <strong>{{ String($route.meta.title || "管理平台") }}</strong>
-            <span> / 智能宠物诊疗系统</span>
+          <el-button
+            ref="menuButton"
+            text
+            circle
+            :aria-label="
+              mobile
+                ? navOpen
+                  ? '关闭导航'
+                  : '打开导航'
+                : collapsed
+                  ? '展开导航'
+                  : '收起导航'
+            "
+            :aria-expanded="mobile ? navOpen : !collapsed"
+            @click="toggleNav"
+            ><el-icon
+              ><Expand v-if="collapsed || mobile" /><Fold v-else /></el-icon
+          ></el-button>
+          <div class="breadcrumb">
+            <span>宠安诊所</span
+            ><ClinicIcon class="direction-icon" name="chevron-right" />
+            <strong>{{ title }}</strong>
           </div>
         </div>
-
         <el-dropdown>
-          <div class="user-chip">
-            <span class="avatar">
-              {{ auth.user?.displayName?.slice(0, 1) || "宠" }}
-            </span>
-            <div>
-              <strong>{{ auth.user?.displayName || "演示用户" }}</strong>
-              <small>{{ accountLabel }}</small>
-            </div>
-            <el-icon><ArrowDown /></el-icon>
+          <div
+            class="user-chip"
+            tabindex="0"
+            role="button"
+            aria-label="账户菜单"
+          >
+            <span class="avatar">{{
+              auth.user?.displayName?.slice(0, 1) || "宠"
+            }}</span
+            ><span class="user-label"
+              >{{ auth.user?.displayName
+              }}<small>{{ accountLabel }}</small></span
+            ><el-icon><ArrowDown /></el-icon>
           </div>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="$router.push('/profile')">
-                个人中心
-              </el-dropdown-item>
-              <el-dropdown-item divided @click="signOut">
-                退出登录
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
+          <template #dropdown
+            ><el-dropdown-menu
+              ><el-dropdown-item @click="$router.push('/profile')"
+                >个人中心</el-dropdown-item
+              ><el-dropdown-item divided @click="signOut"
+                >退出登录</el-dropdown-item
+              ></el-dropdown-menu
+            ></template
+          >
         </el-dropdown>
       </header>
-
-      <div class="tabbar">
-        <span class="tab active">
-          <i></i>{{ String($route.meta.title || "首页") }}
-        </span>
-      </div>
-
-      <section class="page-container"><router-view /></section>
-    </main>
+      <main id="main-content" class="page-container" tabindex="-1">
+        <router-view />
+      </main>
+    </div>
   </div>
 </template>
-
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { ArrowDown, Expand, Fold } from "@element-plus/icons-vue";
+import { useRoute, useRouter } from "vue-router";
+import ClinicBrand from "@/components/ClinicBrand.vue";
+import ClinicIcon from "@/components/ClinicIcon.vue";
+import PageState from "@/components/PageState.vue";
 import PermissionMenuNode from "@/components/PermissionMenuNode.vue";
 import { useAuthStore } from "@/stores/auth";
-
-const collapsed = ref(false);
+import type { PermissionNode } from "@/types";
 const auth = useAuthStore();
 const router = useRouter();
-
+const route = useRoute();
+const media = window.matchMedia("(max-width: 899px)");
+const mobile = ref(media.matches),
+  navOpen = ref(false),
+  collapsed = ref(false);
+const sidebarRef = ref<HTMLElement>();
+const menuButton = ref<{ $el: HTMLElement }>();
+const title = computed(() => String(route.meta.title || "诊疗管理"));
 const accountLabel = computed(
   () =>
     ({ ADMIN: "管理员", STAFF: "诊所员工", OWNER: "宠物主人" })[
       auth.user?.accountType || "OWNER"
     ],
 );
-
-/*
- * TODO【新知识：后端驱动的计算属性】
- * permissionTree 由 /system/permissions/mine 返回；这里只留下有效 MENU 根节点。
- * 子菜单继续由 PermissionMenuNode 递归处理，BUTTON/API 永远不会混进侧边栏。
- */
 const menuNodes = computed(() =>
   auth.permissionTree.filter((node) => auth.isMenuNodeVisible(node)),
 );
-
-const signOut = () => {
+function firstPath(node: PermissionNode): string {
+  return node.path || (node.children || []).map(firstPath).find(Boolean) || "";
+}
+const groups = computed(() => {
+  const definitions = [
+    {
+      label: "诊疗工作",
+      paths: [
+        "/dashboard",
+        "/visits",
+        "/schedules",
+        "/medical-records",
+        "/vaccinations",
+        "/vets",
+      ],
+    },
+    {
+      label: "档案与沟通",
+      paths: ["/owners", "/pets", "/notices", "/feedback", "/ai"],
+    },
+    {
+      label: "设置与审计",
+      paths: ["/pet-types", "/specialties", "/system", "/operation-logs"],
+    },
+  ];
+  return definitions
+    .map((group, index) => ({
+      label: group.label,
+      nodes: menuNodes.value.filter((node) => {
+        const path = firstPath(node);
+        const match = definitions.findIndex((item) =>
+          item.paths.some(
+            (prefix) => path === prefix || path.startsWith(prefix + "/"),
+          ),
+        );
+        return match === index || (match < 0 && index === 2);
+      }),
+    }))
+    .filter((group) => group.nodes.length);
+});
+function changed(event: MediaQueryListEvent) {
+  mobile.value = event.matches;
+  navOpen.value = false;
+}
+media.addEventListener("change", changed);
+onBeforeUnmount(() => media.removeEventListener("change", changed));
+function closeNav() {
+  if (mobile.value && navOpen.value) {
+    navOpen.value = false;
+    nextTick(() => menuButton.value?.$el.focus());
+  }
+}
+async function toggleNav() {
+  if (!mobile.value) {
+    collapsed.value = !collapsed.value;
+    return;
+  }
+  navOpen.value = !navOpen.value;
+  if (navOpen.value) {
+    await nextTick();
+    sidebarRef.value
+      ?.querySelector<HTMLElement>('[tabindex="0"],button,a')
+      ?.focus();
+  }
+}
+function trapFocus(event: KeyboardEvent) {
+  if (!mobile.value || !navOpen.value || event.key !== "Tab") return;
+  const nodes = Array.from(
+    sidebarRef.value?.querySelectorAll<HTMLElement>(
+      'button,a,[tabindex="0"]',
+    ) || [],
+  ).filter((node) => node.offsetParent !== null);
+  const first = nodes[0],
+    last = nodes[nodes.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
+  }
+}
+watch(() => route.path, closeNav);
+function signOut() {
   auth.logout();
   router.push("/login");
-};
-</script>
-
-<style scoped>
-.menu-state {
-  padding: 24px 14px;
-  color: #9fb2c4;
-  font-size: 13px;
-  line-height: 1.6;
-  text-align: center;
 }
-</style>
+</script>

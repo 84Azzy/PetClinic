@@ -1,7 +1,7 @@
 <template>
   <ResourceCrud
     title="角色管理"
-    description="RBAC 留白：维护角色并绑定权限"
+    description="维护诊所角色定义与使用说明。"
     endpoint="/system/roles"
     :columns="columns"
     :fields="fields"

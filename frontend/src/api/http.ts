@@ -10,9 +10,14 @@ http.interceptors.response.use(
   (r) => r.data,
   (e) => {
     const status = e.response?.status;
-    const message = e.response?.data?.message || e.message;
-    if (status === 501)
-      ElMessage.warning("该模块已定义接口，等待你完成后端实现");
+    const message =
+      e.response?.data?.message ||
+      (e.code === "ECONNABORTED"
+        ? "请求超时，请稍后重试"
+        : !e.response
+          ? "暂时无法连接服务，请检查网络后重试"
+          : "请求失败，请稍后重试");
+    if (status === 501) ElMessage.warning("服务暂不可用，请稍后重试");
     else if (status === 401) {
       localStorage.removeItem("petclinic-token");
       localStorage.removeItem("petclinic-user");

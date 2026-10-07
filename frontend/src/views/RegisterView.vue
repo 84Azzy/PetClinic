@@ -1,51 +1,31 @@
 <template>
   <div class="login-page register-page">
-    <div class="login-visual">
-      <div class="visual-copy">
-        <div class="eyebrow">SMART PET CLINIC</div>
-        <h1>为爱宠建立<br /><span>专属健康档案</span></h1>
-        <p>注册宠物主人账号，在线管理宠物档案、预约就诊、查看疫苗记录与诊疗信息。</p>
-        <div class="feature-row">
-          <div><b>便捷</b><small>在线预约就诊</small></div>
-          <div><b>完整</b><small>健康档案管理</small></div>
-          <div><b>安心</b><small>诊疗记录可查</small></div>
-        </div>
-      </div>
-      <div class="paw paw-one">●</div>
-      <div class="paw paw-two">●</div>
-    </div>
-
+    <AuthVisual
+      heading="为爱宠建立健康档案"
+      description="从这里开始，安排就诊、维护基础资料，让照护更有条理。"
+    />
     <div class="login-panel register-panel">
       <div class="login-card register-card">
-        <div class="mobile-brand"><span>P</span>宠安诊所</div>
-        <div class="eyebrow teal">CREATE ACCOUNT</div>
+        <ClinicBrand class="mobile-brand" />
+
         <h2>注册宠物主人账号</h2>
-        <p>填写资料后即可进入宠物诊疗工作台</p>
+        <p>填写基础资料，创建专属的宠物主人账号</p>
 
         <el-form
           ref="formRef"
           :model="form"
           :rules="rules"
           label-position="top"
-          @keyup.enter="submit"
+          @submit.prevent="submit"
         >
           <div class="form-grid">
+            <h3 class="form-section-title">主人与联系资料</h3>
             <el-form-item label="姓名" prop="displayName">
               <el-input
                 v-model="form.displayName"
                 size="large"
                 maxlength="50"
                 placeholder="请输入姓名"
-                :prefix-icon="User"
-              />
-            </el-form-item>
-
-            <el-form-item label="登录账号" prop="username">
-              <el-input
-                v-model="form.username"
-                size="large"
-                maxlength="20"
-                placeholder="4-20 位字母、数字或下划线"
                 :prefix-icon="User"
               />
             </el-form-item>
@@ -80,6 +60,16 @@
               />
             </el-form-item>
 
+            <h3 class="form-section-title">登录账号与密码</h3>
+            <el-form-item label="登录账号" prop="username">
+              <el-input
+                v-model="form.username"
+                size="large"
+                maxlength="20"
+                placeholder="4-20 位字母、数字或下划线"
+                :prefix-icon="User"
+              />
+            </el-form-item>
             <el-form-item label="密码" prop="password">
               <el-input
                 v-model="form.password"
@@ -107,10 +97,11 @@
 
           <el-button
             type="primary"
+            native-type="submit"
             size="large"
             class="login-button"
             :loading="loading"
-            @click="submit"
+            :disabled="loading"
           >
             {{ loading ? "正在注册..." : "注册并进入系统" }}
           </el-button>
@@ -121,12 +112,14 @@
         </el-form>
       </div>
 
-      <div class="copyright">© 2026 宠安智能诊所 · 学习演示项目</div>
+      <div class="copyright">© 2026 宠安智能诊所 · 作品集演示</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import AuthVisual from "@/components/AuthVisual.vue";
+import ClinicBrand from "@/components/ClinicBrand.vue";
 import { reactive, ref } from "vue";
 import { Location, Lock, Message, Phone, User } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
@@ -189,9 +182,11 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const submit = async () => {
+  if (loading.value) return;
   const valid = await formRef.value?.validate().catch(() => false);
   if (!valid) return;
 
+  if (loading.value) return;
   loading.value = true;
   try {
     const response = await register({
@@ -226,7 +221,7 @@ const submit = async () => {
 
 .register-card {
   width: min(560px, 100%);
-  padding: 34px 38px;
+  padding: 24px 0;
 }
 
 .form-grid {
@@ -245,7 +240,7 @@ const submit = async () => {
   }
 
   .register-card {
-    padding: 28px 22px;
+    padding: 0;
   }
 
   .form-grid {
