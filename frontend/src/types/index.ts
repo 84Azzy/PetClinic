@@ -80,7 +80,6 @@ export interface PetForm {
   color?: string;
   microchipNo?: string;
   allergies?: string;
-  photoUrl?: string;
 }
 
 export type VisitStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED";
@@ -104,8 +103,13 @@ export interface VetSummary {
   id: number;
   name: string;
   phone?: string;
+  email?: string;
   licenseNo?: string;
+  biography?: string;
+  avatarUrl?: string;
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ScheduleSlot {

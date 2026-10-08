@@ -65,7 +65,12 @@
           :aria-pressed="selected?.id === row.id"
           @click="selectPet(row, true)"
         >
-          <PetAvatar :src="row.photoUrl" :name="row.name" :size="52" />
+          <PetAvatar
+            :src="row.photoUrl"
+            :name="row.name"
+            :size="52"
+            :version="photoVersion(row)"
+          />
           <div class="registry-text">
             <strong>{{ row.name }}</strong
             ><small
@@ -107,6 +112,7 @@
               :src="selected.photoUrl"
               :name="selected.name"
               :size="96"
+              :version="photoVersion(selected)"
             />
             <div>
               <h2>
@@ -120,6 +126,13 @@
               <small class="caption">档案编号 #{{ selected.id }}</small>
             </div>
             <div class="pet-identity-actions">
+              <el-button
+                v-if="canUpdate"
+                type="primary"
+                plain
+                @click="openEdit(selected)"
+                >修改照片</el-button
+              >
               <el-button v-if="canUpdate" @click="openEdit(selected)"
                 >编辑资料</el-button
               ><el-button
@@ -347,11 +360,35 @@
           </el-form-item>
         </div>
 
-        <el-form-item label="照片地址" prop="photoUrl">
-          <el-input
-            v-model="form.photoUrl"
-            placeholder="可选：输入宠物照片 URL"
-          />
+        <el-form-item label="宠物照片">
+          <div class="photo-upload-field">
+            <PetAvatar
+              :src="photoPreviewUrl || (!removeExistingPhoto ? currentPhotoUrl : '')"
+              :name="form.name || '宠物照片预览'"
+              :size="76"
+            />
+            <div class="photo-upload-actions">
+              <el-upload
+                accept="image/jpeg,image/png,image/webp"
+                :auto-upload="false"
+                :show-file-list="false"
+                :on-change="selectPhoto"
+              >
+                <el-button :disabled="saving">
+                  {{ currentPhotoUrl || photoFile ? "更换照片" : "上传照片" }}
+                </el-button>
+              </el-upload>
+              <el-button
+                v-if="photoFile || (currentPhotoUrl && !removeExistingPhoto)"
+                link
+                type="danger"
+                :disabled="saving"
+                @click="removePhoto"
+                >移除照片</el-button
+              >
+              <small>支持 JPEG、PNG、WebP，文件不超过 5MB。</small>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="过敏史" prop="allergies">
@@ -384,7 +421,15 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from "vue";
 import { useRoute } from "vue-router";
 import { Plus, Search } from "@element-plus/icons-vue";
 import {
@@ -392,6 +437,7 @@ import {
   ElMessageBox,
   type FormInstance,
   type FormRules,
+  type UploadFile,
 } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
 import PageState from "@/components/PageState.vue";
@@ -401,11 +447,13 @@ import StatusTag from "@/components/StatusTag.vue";
 import { useAuthStore } from "@/stores/auth";
 import {
   createPet,
+  deletePetPhoto,
   disablePet,
   getMyOwner,
   listPets,
   listPetTypes,
   updatePet,
+  uploadPetPhoto,
   type PetQuery,
 } from "@/api/pets";
 import { getResource } from "@/api/resource";
@@ -432,6 +480,11 @@ const rows = ref<Pet[]>([]),
   editingId = ref<number | null>(null),
   formRef = ref<FormInstance>(),
   contentRef = ref<HTMLElement>();
+const photoFile = ref<File>(),
+  photoPreviewUrl = ref(""),
+  currentPhotoUrl = ref(""),
+  removeExistingPhoto = ref(false),
+  photoRevisions = ref<Record<number, number>>({});
 const query = reactive<PetQuery>({
   page: 1,
   size: 10,
@@ -449,7 +502,6 @@ const createEmptyForm = (): PetForm => ({
   color: "",
   microchipNo: "",
   allergies: "",
-  photoUrl: "",
 });
 const form = reactive<PetForm>(createEmptyForm());
 const isStaff = computed(() => auth.hasRole("ADMIN") || auth.hasRole("STAFF")),
@@ -578,6 +630,7 @@ function resetQuery() {
 function resetForm() {
   editingId.value = null;
   Object.assign(form, createEmptyForm());
+  resetPhotoState();
   formRef.value?.clearValidate();
 }
 function openCreate() {
@@ -585,7 +638,9 @@ function openCreate() {
   dialogVisible.value = true;
 }
 function openEdit(pet: Pet) {
+  resetPhotoState();
   editingId.value = pet.id;
+  currentPhotoUrl.value = pet.photoUrl || "";
   Object.assign(
     form,
     createEmptyForm(),
@@ -598,17 +653,53 @@ function openEdit(pet: Pet) {
   );
   dialogVisible.value = true;
 }
+function clearPhotoPreview() {
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value);
+  photoPreviewUrl.value = "";
+}
+function resetPhotoState() {
+  clearPhotoPreview();
+  photoFile.value = undefined;
+  currentPhotoUrl.value = "";
+  removeExistingPhoto.value = false;
+}
+function selectPhoto(uploadFile: UploadFile) {
+  const file = uploadFile.raw;
+  if (!file) return;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    ElMessage.warning("仅支持 JPEG、PNG 或 WebP 图片");
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning("图片大小不能超过 5MB");
+    return;
+  }
+  clearPhotoPreview();
+  photoFile.value = file;
+  photoPreviewUrl.value = URL.createObjectURL(file);
+  removeExistingPhoto.value = false;
+}
+function removePhoto() {
+  clearPhotoPreview();
+  photoFile.value = undefined;
+  removeExistingPhoto.value = !!currentPhotoUrl.value;
+}
+function photoVersion(pet: Pet) {
+  return `${pet.updatedAt || ""}:${photoRevisions.value[pet.id] || 0}`;
+}
 async function save() {
   if (saving.value || !(await formRef.value?.validate().catch(() => false)))
     return;
   if (saving.value) return;
   saving.value = true;
+  const creating = editingId.value === null;
+  let recordSaved = false;
   try {
     const data = {
       ...form,
       name: form.name.trim(),
       ...Object.fromEntries(
-        ["breed", "color", "microchipNo", "allergies", "photoUrl"].map(
+        ["breed", "color", "microchipNo", "allergies"].map(
           (key) => [key, (form as ClinicRow)[key]?.trim() || undefined],
         ),
       ),
@@ -617,12 +708,31 @@ async function save() {
       editingId.value === null
         ? await createPet(data)
         : await updatePet(editingId.value, data);
-    selected.value = response.data;
-    if (editingId.value === null) query.page = 1;
+    recordSaved = true;
+    editingId.value = response.data.id;
+    let savedPet = response.data;
+    if (photoFile.value) {
+      savedPet = (await uploadPetPhoto(response.data.id, photoFile.value)).data;
+    } else if (removeExistingPhoto.value && currentPhotoUrl.value) {
+      await deletePetPhoto(response.data.id);
+      savedPet = { ...savedPet, photoUrl: undefined };
+    }
+    if (photoFile.value || removeExistingPhoto.value) {
+      photoRevisions.value = {
+        ...photoRevisions.value,
+        [response.data.id]: (photoRevisions.value[response.data.id] || 0) + 1,
+      };
+    }
+    selected.value = savedPet;
+    if (creating) query.page = 1;
     ElMessage.success("宠物档案已保存");
     dialogVisible.value = false;
     await load();
   } catch {
+    if (recordSaved) {
+      ElMessage.warning("档案已保存，但照片处理失败；请在当前窗口重试");
+      await load();
+    }
   } finally {
     saving.value = false;
   }
@@ -697,6 +807,7 @@ onMounted(async () => {
   await load();
   await selectRoutePet();
 });
+onBeforeUnmount(clearPhotoPreview);
 </script>
 <style scoped>
 .dossier-layout {
@@ -763,6 +874,21 @@ onMounted(async () => {
 .pet-identity small {
   display: block;
   margin-top: 8px;
+}
+.photo-upload-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.photo-upload-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+.photo-upload-actions small {
+  color: var(--clinic-muted);
+  line-height: 1.5;
 }
 @media (max-width: 1199px) {
   .dossier-layout {

@@ -1,26 +1,28 @@
 <template>
   <span
-    class="pet-avatar"
+    class="vet-avatar"
     :style="{ width: size + 'px', height: size + 'px' }"
     role="img"
-    :aria-label="name ? name + '的照片' : '宠物照片'"
+    :aria-label="name ? name + '的头像' : '兽医头像'"
   >
     <img
       v-if="displayUrl && !failed"
       :src="displayUrl"
-      :alt="name || '宠物照片'"
+      :alt="name || '兽医头像'"
       :width="size"
       :height="size"
       loading="lazy"
       @error="failed = true"
     />
-    <ClinicIcon v-else name="pet" />
+    <ClinicIcon v-else name="doctor" />
   </span>
 </template>
+
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from "vue";
 import http from "@/api/http";
 import ClinicIcon from "./ClinicIcon.vue";
+
 const props = withDefaults(
   defineProps<{
     src?: string;
@@ -28,12 +30,13 @@ const props = withDefaults(
     size?: number;
     version?: string | number;
   }>(),
-  { size: 52 },
+  { size: 48 },
 );
-const failed = ref(false),
-  displayUrl = ref("");
-let generatedUrl = "",
-  generation = 0;
+
+const failed = ref(false);
+const displayUrl = ref("");
+let generatedUrl = "";
+let generation = 0;
 
 function safeDirectUrl(value: string) {
   try {
@@ -77,21 +80,23 @@ watch(
   },
   { immediate: true },
 );
+
 onBeforeUnmount(() => {
   generation++;
   clearGeneratedUrl();
 });
 </script>
+
 <style scoped>
-.pet-avatar {
+.vet-avatar {
   display: inline-flex;
-  flex-shrink: 0;
+  flex: none;
   align-items: center;
   justify-content: center;
-  background: #eaf2ed;
-  border-radius: 10px;
   overflow: hidden;
-  color: #548371;
+  border-radius: 50%;
+  background: #eaf2ed;
+  color: var(--clinic-primary);
 }
 img {
   width: 100%;

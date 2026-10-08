@@ -12,5 +12,4 @@ public record PetRequest(
     @PastOrPresent LocalDate birthDate,
     String color,
     String microchipNo,
-    String allergies,
-    String photoUrl) {}
+    String allergies) {}

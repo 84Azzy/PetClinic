@@ -83,10 +83,18 @@
               </div></template
             ></el-table-column
           >
-          <el-table-column label="接诊兽医" min-width="120"
-            ><template #default="{ row }">{{
-              vetName(row.vetId)
-            }}</template></el-table-column
+          <el-table-column label="接诊兽医" min-width="170"
+            ><template #default="{ row }"
+              ><div class="vet-cell">
+                <VetAvatar
+                  :src="vet(row.vetId)?.avatarUrl"
+                  :name="vetName(row.vetId)"
+                  :size="36"
+                  :version="vet(row.vetId)?.updatedAt"
+                />
+                <span>{{ vetName(row.vetId) }}</span>
+              </div></template
+            ></el-table-column
           >
           <el-table-column label="预约时间" min-width="210"
             ><template #default="{ row }">{{
@@ -156,7 +164,15 @@
             <dl>
               <div>
                 <dt>接诊兽医</dt>
-                <dd>{{ vetName(row.vetId) }}</dd>
+                <dd class="vet-cell">
+                  <VetAvatar
+                    :src="vet(row.vetId)?.avatarUrl"
+                    :name="vetName(row.vetId)"
+                    :size="32"
+                    :version="vet(row.vetId)?.updatedAt"
+                  />
+                  <span>{{ vetName(row.vetId) }}</span>
+                </dd>
               </div>
               <div>
                 <dt>预约时间</dt>
@@ -429,6 +445,7 @@ import {
 import PageHeader from "@/components/PageHeader.vue";
 import PageState from "@/components/PageState.vue";
 import PetAvatar from "@/components/PetAvatar.vue";
+import VetAvatar from "@/components/VetAvatar.vue";
 import StatusTag from "@/components/StatusTag.vue";
 import {
   cancelVisit,
@@ -703,8 +720,9 @@ async function complete(visit: Visit) {
 }
 const pet = (id: number) => pets.value.find((p) => p.id === id),
   petName = (id: number) => pet(id)?.name || "宠物 #" + id,
+  vet = (id: number) => vets.value.find((v) => v.id === id),
   vetName = (id: number) =>
-    vets.value.find((v) => v.id === id)?.name || "兽医 #" + id;
+    vet(id)?.name || "兽医 #" + id;
 const appointmentTime = (id: number) =>
   slotsById.value[id]
     ? formatDate(slotsById.value[id].startTime, true) +
@@ -752,7 +770,8 @@ onMounted(async () => {
 });
 </script>
 <style scoped>
-.pet-cell {
+.pet-cell,
+.vet-cell {
   display: flex;
   gap: 12px;
   align-items: center;

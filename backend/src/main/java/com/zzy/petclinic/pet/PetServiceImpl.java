@@ -122,9 +122,6 @@ public class PetServiceImpl implements PetService{
         if(r.allergies() != null){
             pet.setAllergies(r.allergies());
         }
-        if(r.photoUrl() != null){
-            pet.setPhotoUrl(r.photoUrl());
-        }
         petMapper.insert(pet);
         return pet;
     }
@@ -163,9 +160,6 @@ public class PetServiceImpl implements PetService{
         }
         if(r.allergies() != null){
             pet.setAllergies(r.allergies());
-        }
-        if(r.photoUrl() != null){
-            pet.setPhotoUrl(r.photoUrl());
         }
         petMapper.updateById(pet);
         return pet;

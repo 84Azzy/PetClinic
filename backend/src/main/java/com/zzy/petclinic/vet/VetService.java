@@ -106,7 +106,6 @@ public class VetService {
     x.setEmail(r.email());
     x.setLicenseNo(r.licenseNo());
     x.setBiography(r.biography());
-    x.setAvatarUrl(r.avatarUrl());
     x.setStatus(r.status() == null ? "ACTIVE" : r.status());
   }
 }

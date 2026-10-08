@@ -21,3 +21,6 @@ app:
   jwt:
     secret: TestSecretKeyMustBeAtLeastThirtyTwoBytesLongForPetClinic
     expiration-minutes: 60
+  storage:
+    cos:
+      enabled: false

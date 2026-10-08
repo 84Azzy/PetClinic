@@ -66,7 +66,12 @@
     <div v-else class="schedule-board">
       <section v-for="vet in visibleVets" :key="vet.id" class="schedule-column">
         <header>
-          <span class="doctor-icon"><ClinicIcon name="doctor" /></span>
+          <VetAvatar
+            :src="vet.avatarUrl"
+            :name="vet.name"
+            :size="44"
+            :version="vet.updatedAt"
+          />
           <div>
             <h2>{{ vet.name }}</h2>
             <p>
@@ -222,6 +227,7 @@ import { ElMessage, type FormInstance } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
 import PageState from "@/components/PageState.vue";
 import ClinicIcon from "@/components/ClinicIcon.vue";
+import VetAvatar from "@/components/VetAvatar.vue";
 import StatusTag from "@/components/StatusTag.vue";
 import {
   createResource,
@@ -390,18 +396,6 @@ onMounted(async () => {
   gap: 12px;
   padding: 20px;
   border-bottom: 1px solid var(--clinic-border);
-}
-.doctor-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  background: #edf5f0;
-  border-radius: 50%;
-  color: var(--clinic-primary);
-}
-.doctor-icon svg {
-  width: 24px;
 }
 .schedule-column h2 {
   font-size: 16px;

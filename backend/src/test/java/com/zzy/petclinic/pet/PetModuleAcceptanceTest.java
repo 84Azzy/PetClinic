@@ -263,7 +263,6 @@ class PetModuleAcceptanceTest {
         LocalDate.of(2022, 4, 12),
         null,
         null,
-        null,
         null);
   }
 

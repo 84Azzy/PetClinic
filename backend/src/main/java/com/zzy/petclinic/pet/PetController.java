@@ -1,14 +1,18 @@
 package com.zzy.petclinic.pet;
 
 import com.zzy.petclinic.common.*;
+import com.zzy.petclinic.storage.ImageResponses;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Tag(name = "宠物档案（学习者实现）")
 @RestController
@@ -17,6 +21,9 @@ public class PetController {
 
   @Autowired
   private PetService petService;
+
+  @Autowired
+  private PetImageService petImageService;
 
   @Operation(summary = "新增宠物")
   @PostMapping
@@ -66,6 +73,29 @@ public class PetController {
   public ApiResponse<Void> delete(@PathVariable Long id) {
     petService.delete(id);
     return ApiResponse.message("删除成功");
+  }
+
+  @Operation(summary = "上传或替换宠物照片")
+  @PostMapping(path = "/{id}/photo", consumes = "multipart/form-data")
+  @PreAuthorize("hasAuthority('pet:update') && hasAnyRole('ADMIN', 'STAFF')")
+  public ApiResponse<Pet> uploadPhoto(
+      @PathVariable Long id, @RequestPart("file") MultipartFile file) {
+    return ApiResponse.ok(petImageService.replace(id, file));
+  }
+
+  @Operation(summary = "读取宠物照片")
+  @GetMapping("/{id}/photo")
+  @PreAuthorize("hasAuthority('pet:manage')")
+  public ResponseEntity<StreamingResponseBody> photo(@PathVariable Long id) {
+    return ImageResponses.stream(petImageService.load(id));
+  }
+
+  @Operation(summary = "删除宠物照片")
+  @DeleteMapping("/{id}/photo")
+  @PreAuthorize("hasAuthority('pet:update') && hasAnyRole('ADMIN', 'STAFF')")
+  public ApiResponse<Void> deletePhoto(@PathVariable Long id) {
+    petImageService.delete(id);
+    return ApiResponse.message("照片已删除");
   }
 
 }

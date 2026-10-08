@@ -53,6 +53,7 @@ frontend/.vite/
 
 *.md
 !README.md
+
 docs
 .gitignore
 .idea

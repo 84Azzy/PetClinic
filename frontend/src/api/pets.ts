@@ -40,3 +40,14 @@ export const updatePet = (id: number, data: PetForm) =>
 
 export const disablePet = (id: number) =>
   http.delete<any, ApiResponse<void>>(`/pets/${id}`);
+
+export const uploadPetPhoto = (id: number, file: File) => {
+  const data = new FormData();
+  data.append("file", file);
+  return http.post<any, ApiResponse<Pet>>(`/pets/${id}/photo`, data, {
+    timeout: 60000,
+  });
+};
+
+export const deletePetPhoto = (id: number) =>
+  http.delete<any, ApiResponse<void>>(`/pets/${id}/photo`);

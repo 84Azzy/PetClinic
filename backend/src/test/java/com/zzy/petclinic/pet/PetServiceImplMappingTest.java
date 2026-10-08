@@ -57,8 +57,7 @@ class PetServiceImplMappingTest {
         LocalDate.of(2024, 5, 8),
         "白色",
         "MC-009",
-        "无",
-        "https://example.test/pets/9.jpg");
+        "无");
   }
 
   private static void assertPetMatches(Pet pet, PetRequest request) {
@@ -71,7 +70,6 @@ class PetServiceImplMappingTest {
         () -> assertEquals(request.birthDate(), pet.getBirthDate(), "birthDate 未映射"),
         () -> assertEquals(request.color(), pet.getColor(), "color 未映射"),
         () -> assertEquals(request.microchipNo(), pet.getMicrochipNo(), "microchipNo 未映射"),
-        () -> assertEquals(request.allergies(), pet.getAllergies(), "allergies 未映射"),
-        () -> assertEquals(request.photoUrl(), pet.getPhotoUrl(), "photoUrl 未映射"));
+        () -> assertEquals(request.allergies(), pet.getAllergies(), "allergies 未映射"));
   }
 }

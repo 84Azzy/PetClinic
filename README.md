@@ -147,10 +147,14 @@ mvn spring-boot:run
 
 ### 2. 启动后端
 
+本地配置集中在 `backend/.env`。项目已配置 Spring Boot 自动读取该文件，IDEA 的工作目录无论是项目根目录还是 `backend` 均可，不需要安装 EnvFile 插件。首次克隆项目时可复制 `backend/.env.example` 为 `backend/.env`。
+
 ```powershell
 cd backend
 mvn spring-boot:run
 ```
+
+数据库、AI 和 COS 的本地参数直接修改 `backend/.env`；该文件已经被 `.gitignore` 排除。前端不读取该文件，也不会接触任何后端密钥。
 
 后端默认监听 `http://localhost:8080`。
 
@@ -223,7 +227,9 @@ DEEPSEEK_MODEL=deepseek-v4-pro
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `SERVER_PORT` | `8080` | 后端端口 |
-| `DB_URL` | 本地 `petclinic` MySQL URL | JDBC 地址 |
+| `DB_HOST` | `localhost` | 数据库主机；Compose 内部自动覆盖为 `mysql` |
+| `DB_PORT` | `3306` | MySQL 端口 |
+| `DB_NAME` | `petclinic` | 数据库名称 |
 | `DB_USERNAME` | `root` | 数据库用户名 |
 | `DB_PASSWORD` | `root` | 数据库密码 |
 | `APP_DATABASE_INITIALIZE` | `false` | 启动时重建并初始化表，具有破坏性 |
@@ -233,6 +239,51 @@ DEEPSEEK_MODEL=deepseek-v4-pro
 | `DEEPSEEK_API_KEY` | 空 | DeepSeek API Key |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | OpenAI 兼容接口地址 |
 | `DEEPSEEK_MODEL` | `deepseek-v4-pro` | 模型名称 |
+| `spring.profiles.active` | `dev`（本地 `.env`） | 腾讯云服务器使用 `prod` |
+| `COS_ENABLED` | `false` | 本地是否启用腾讯云 COS 图片存储 |
+| `COS_REGION` | `ap-shanghai`（dev） | COS 地域，例如 `ap-shanghai` |
+| `COS_BUCKET` | 空 | 完整存储桶名称，必须包含 APPID |
+| `COS_PREFIX` | `petclinic/dev` 或 `petclinic/prod` | 当前环境的对象 Key 前缀 |
+| `TENCENTCLOUD_SECRET_ID` | 空 | 仅开发环境使用的受限 CAM 子账号 SecretId |
+| `TENCENTCLOUD_SECRET_KEY` | 空 | 仅开发环境使用的受限 CAM 子账号 SecretKey |
+| `COS_CVM_ROLE_NAME` | 空 | 生产 CVM 绑定的 CAM 角色名称 |
+
+## 腾讯云 COS 图片存储
+
+项目使用私有 COS 存储桶，数据库只保存对象 Key。浏览器通过带 JWT 的后端接口上传和读取图片，不需要为存储桶配置 CORS，也不会接触腾讯云密钥。
+
+- 本地配置由 `application-dev.yml` 提供，使用受限 CAM 子账号密钥。
+- 生产配置由 `application-prod.yml` 提供，使用 CVM 实例角色临时凭证。
+- 推荐分别创建开发桶和生产桶；至少要使用互不重叠的 `COS_PREFIX`。
+- 图片支持 JPEG、PNG、WebP，最大 5MB。
+
+### 本地测试用户的最小权限策略
+
+CAM 自定义策略模板位于 `cos-dev-user-policy.example.json`。导入前必须：
+
+1. 将资源字符串中的两处 `REPLACE_WITH_APPID` 替换为主账号 APPID。
+2. 将 `petclinic-images-dev-APPID` 替换为实际的完整开发桶名称。
+3. 如果开发桶不在上海地域，将 `ap-shanghai` 替换为实际地域简称。
+4. 保持末尾 `petclinic/dev/*` 与 `COS_PREFIX=petclinic/dev` 一致。
+
+该策略只允许上传、读取、查询元数据和删除开发前缀下的对象，不允许列举存储桶、修改桶配置或访问 `petclinic/prod/*`。在 CAM 控制台选择“策略 → 新建自定义策略 → 按策略语法创建”，粘贴替换后的 JSON，再关联到本地测试使用的 CAM 子用户。
+
+已有数据库升级前先备份，并先执行：
+
+```sql
+SELECT COUNT(*) AS legacy_pet_photo_count FROM pet WHERE photo_url IS NOT NULL;
+SELECT COUNT(*) AS legacy_vet_avatar_count FROM vet WHERE avatar_url IS NOT NULL;
+```
+
+如果任一结果不为 `0`，应先把对应文件迁移到 COS 并将值替换为对象 Key。确认后执行一次：
+
+```text
+backend/src/main/resources/db/upgrade/20261007_cos_image_object_keys.sql
+```
+
+当前仓库根目录 `petclinic.sql` 中这些值均为 `NULL`，可直接升级。
+
+全新数据库不需要执行升级脚本，`db/schema.sql` 与根目录 `petclinic.sql` 已包含新字段。
 
 ## 接口约定
 

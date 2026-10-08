@@ -212,6 +212,7 @@
       :close-on-click-modal="!saving"
       :close-on-press-escape="!saving"
       :show-close="!saving"
+      @closed="emit('formClosed')"
     >
       <el-form
         ref="formRef"
@@ -282,6 +283,12 @@
             />
           </el-form-item>
         </div>
+        <slot
+          name="form-extra"
+          :form="form"
+          :editing-id="editingId"
+          :saving="saving"
+        />
       </el-form>
       <template #footer
         ><el-button :disabled="saving" @click="visible = false">取消</el-button
@@ -381,6 +388,10 @@ const p = withDefaults(
     deleteLabel?: string;
     tree?: boolean;
     extraParams?: Record<string, unknown>;
+    afterSave?: (
+      row: ClinicRow,
+      context: { created: boolean },
+    ) => Promise<ClinicRow | void>;
   }>(),
   {
     createEnabled: true,
@@ -408,7 +419,11 @@ const statuses = computed(
         ]
       : []),
 );
-const emit = defineEmits<{ reset: [] }>();
+const emit = defineEmits<{
+  reset: [];
+  formOpen: [row?: ClinicRow];
+  formClosed: [];
+}>();
 const rows = ref<ClinicRow[]>([]),
   serverTotal = ref(0),
   clientMode = ref(false),
@@ -539,6 +554,7 @@ function openCreate() {
     if (field.defaultValue !== undefined) form[field.key] = field.defaultValue;
     else if (field.key === "status") form[field.key] = "ACTIVE";
   });
+  emit("formOpen");
   visible.value = true;
 }
 function openEdit(row: ClinicRow) {
@@ -547,6 +563,7 @@ function openEdit(row: ClinicRow) {
   p.fields.forEach((field) => {
     if (field.key !== "password") form[field.key] = row[field.key];
   });
+  emit("formOpen", row);
   visible.value = true;
 }
 function openDetail(row: ClinicRow) {
@@ -558,6 +575,8 @@ async function save() {
     return;
   if (saving.value) return;
   saving.value = true;
+  const created = editingId.value === undefined;
+  let recordSaved = false;
   try {
     const data = Object.fromEntries(
       p.fields
@@ -568,14 +587,21 @@ async function save() {
         )
         .map((field) => [field.key, form[field.key]]),
     );
-    editingId.value
-      ? await updateResource(p.endpoint, editingId.value, data)
-      : await createResource(p.endpoint, data);
+    const response = editingId.value
+      ? await updateResource<ClinicRow>(p.endpoint, editingId.value, data)
+      : await createResource<ClinicRow>(p.endpoint, data);
+    recordSaved = true;
+    editingId.value = response.data.id;
+    const saved = p.afterSave
+      ? (await p.afterSave(response.data, { created })) || response.data
+      : response.data;
+    if (selected.value?.id === saved.id) selected.value = saved;
     ElMessage.success("记录已保存");
     visible.value = false;
     await load();
   } catch {
-    /* The shared HTTP handler provides the API error; keep the form for retry. */
+    if (recordSaved && p.afterSave)
+      ElMessage.warning("资料已保存，但图片处理失败；请在当前窗口重试");
   } finally {
     saving.value = false;
   }

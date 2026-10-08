@@ -1,10 +1,13 @@
 package com.zzy.petclinic.common;
 
+import com.qcloud.cos.exception.CosClientException;
+import com.qcloud.cos.exception.CosServiceException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.BadSqlGrammarException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -53,6 +56,17 @@ public class GlobalExceptionHandler {
           .body(ApiResponse.error(503, "数据库尚未初始化，请先执行 db/schema.sql 与 db/data.sql"));
     }
     return ResponseEntity.internalServerError().body(ApiResponse.error(500, "数据库查询失败"));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ApiResponse<Void>> uploadTooLarge(MaxUploadSizeExceededException e) {
+    return ResponseEntity.status(413).body(ApiResponse.error(413, "图片大小不能超过 5MB"));
+  }
+
+  @ExceptionHandler({CosClientException.class, CosServiceException.class})
+  public ResponseEntity<ApiResponse<Void>> cosFailure(RuntimeException e) {
+    log.error("COS request failed", e);
+    return ResponseEntity.status(502).body(ApiResponse.error(502, "图片存储服务暂时不可用"));
   }
 
   @ExceptionHandler(Exception.class)

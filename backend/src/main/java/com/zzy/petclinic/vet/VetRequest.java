@@ -9,6 +9,5 @@ public record VetRequest(
     @Email String email,
     @NotBlank String licenseNo,
     String biography,
-    String avatarUrl,
     String status,
     List<Long> specialtyIds) {}
