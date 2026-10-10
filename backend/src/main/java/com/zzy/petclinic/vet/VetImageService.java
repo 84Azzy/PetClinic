@@ -13,6 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 编排兽医头像的校验、COS 存储和数据库对象 Key 更新。
+ *
+ * <p>流程与 {@code PetImageService} 相同：先上传新对象，再提交新 Key，最后清理旧对象。这样替换期间始终至少有
+ * 一张可用图片，并为数据库更新失败提供删除新对象的补偿机会。
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -22,6 +28,13 @@ public class VetImageService {
   private final ImageStorageService storageService;
   private final ImageUploadValidator validator;
 
+  /**
+   * 上传并替换兽医头像。
+   *
+   * @param vetId 兽医主键
+   * @param file 浏览器 multipart 请求中的图片
+   * @return 已带新 {@code avatarUrl} 计算属性的兽医对象
+   */
   @PreAuthorize("hasAuthority('vet:manage')")
   public Vet replace(Long vetId, MultipartFile file) {
     Vet vet = requireVet(vetId);
@@ -39,6 +52,7 @@ public class VetImageService {
     return vet;
   }
 
+  /** 根据数据库中的对象 Key 从私有 COS 打开头像流。 */
   @PreAuthorize("isAuthenticated()")
   public StoredImage load(Long vetId) {
     Vet vet = vetService.get(vetId);
@@ -48,6 +62,7 @@ public class VetImageService {
     return storageService.load(vet.getAvatarObjectKey());
   }
 
+  /** 先清空数据库对象 Key，再尽力删除 COS 里的旧头像。 */
   @PreAuthorize("hasAuthority('vet:manage')")
   public void delete(Long vetId) {
     Vet vet = requireVet(vetId);
@@ -67,6 +82,7 @@ public class VetImageService {
     return vet;
   }
 
+  /** 删除失败只记录日志，避免把已经成功的数据库更新报告为失败。 */
   private void safelyDelete(String objectKey) {
     if (!StringUtils.hasText(objectKey)) return;
     try {

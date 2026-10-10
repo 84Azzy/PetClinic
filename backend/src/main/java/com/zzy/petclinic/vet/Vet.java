@@ -19,6 +19,11 @@ public class Vet extends BaseEntity {
   @JsonIgnore private String avatarObjectKey;
   private String status;
 
+  /**
+   * 生成前端读取头像的后端 API 地址，而不是泄露 COS 对象 Key 或签名 URL。
+   *
+   * @return 有头像时返回 {@code /api/vets/{id}/avatar}，否则返回 {@code null}
+   */
   @JsonProperty("avatarUrl")
   public String getAvatarUrl() {
     return avatarObjectKey == null || getId() == null ? null : "/api/vets/" + getId() + "/avatar";

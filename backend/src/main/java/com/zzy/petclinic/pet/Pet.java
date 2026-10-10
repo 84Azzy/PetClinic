@@ -24,6 +24,14 @@ public class Pet extends BaseEntity {
   @JsonIgnore private String photoObjectKey;
   private String status;
 
+  /**
+   * 生成前端读取照片所需的后端 API 地址。
+   *
+   * <p>{@link JsonIgnore} 保证真实 COS 对象 Key 不出现在接口 JSON 中；本方法通过 {@link JsonProperty} 暴露稳定的
+   * {@code photoUrl}。前端因此不需要知道桶名、地域和 Key，也不会接触 COS 凭证。
+   *
+   * @return 有照片时返回 {@code /api/pets/{id}/photo}，否则返回 {@code null}
+   */
   @JsonProperty("photoUrl")
   public String getPhotoUrl() {
     return photoObjectKey == null || getId() == null ? null : "/api/pets/" + getId() + "/photo";

@@ -10,12 +10,25 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 在图片进入 COS 之前执行服务端校验。
+ *
+ * <p>不能相信浏览器提交的文件名和 {@code Content-Type}：攻击者可以绕过前端校验并伪造请求。因此这里根据
+ * 文件魔数识别 JPEG、PNG、WebP，并限制文件字节数和解码后的像素总数。像素限制用于防御“压缩后很小、解码后
+ * 占用巨大内存”的图片炸弹。
+ */
 @Component
 @RequiredArgsConstructor
 public class ImageUploadValidator {
   private static final long MAX_PIXELS = 25_000_000L;
   private final ImageStorageProperties properties;
 
+  /**
+   * 读取并验证 Multipart 文件，成功后生成可信的 {@link ValidatedImage}。
+   *
+   * @param file Controller 从 {@code multipart/form-data} 的 {@code file} 字段取得的文件
+   * @return 可安全交给存储层的图片字节、MIME 类型和扩展名
+   */
   public ValidatedImage validate(MultipartFile file) {
     if (file == null || file.isEmpty()) {
       throw BusinessException.badRequest("请选择要上传的图片");
@@ -37,6 +50,7 @@ public class ImageUploadValidator {
     }
   }
 
+  /** 根据文件头（魔数）识别真实图片格式，不采用用户可伪造的文件扩展名。 */
   private ImageType detect(byte[] bytes) {
     if (bytes.length >= 3
         && (bytes[0] & 0xff) == 0xff
@@ -63,6 +77,7 @@ public class ImageUploadValidator {
     throw BusinessException.badRequest("文件内容不是受支持的图片格式");
   }
 
+  /** 解码尺寸并拒绝无效或像素数过大的图片。 */
   private void validateDimensions(byte[] bytes, ImageType type) throws IOException {
     Dimensions dimensions;
     if (type.contentType().equals("image/webp")) {
@@ -78,6 +93,11 @@ public class ImageUploadValidator {
     }
   }
 
+  /**
+   * 从 WebP 的 VP8X、VP8L 或 VP8 数据块读取宽高。
+   *
+   * <p>标准 JDK 的 ImageIO 通常不原生支持 WebP，因此这里解析格式头，而不是依赖额外图像插件。
+   */
   private Dimensions webpDimensions(byte[] bytes) {
     if (bytes.length < 30) throw BusinessException.badRequest("WebP 图片内容已损坏");
     String chunk = ascii(bytes, 12, 4);
@@ -115,7 +135,9 @@ public class ImageUploadValidator {
         .toUpperCase(Locale.ROOT);
   }
 
+  // 图片类型记录
   private record ImageType(String contentType, String extension) {}
 
+  // 图片尺寸记录
   private record Dimensions(int width, int height) {}
 }

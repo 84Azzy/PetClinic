@@ -58,6 +58,7 @@ public class VetController {
     return ApiResponse.message("兽医已停用");
   }
 
+  /** 接收 {@code FormData.file} 并由后端完成校验、COS 上传和数据库 Key 更新。 */
   @PostMapping(path = "/{id}/avatar", consumes = "multipart/form-data")
   @PreAuthorize("hasAuthority('vet:manage')")
   public ApiResponse<Vet> uploadAvatar(
@@ -65,12 +66,14 @@ public class VetController {
     return ApiResponse.ok(imageService.replace(id, file));
   }
 
+  /** 经 JWT 鉴权后，将私有 COS 头像以二进制流返回给浏览器。 */
   @GetMapping("/{id}/avatar")
   @PreAuthorize("isAuthenticated()")
   public ResponseEntity<StreamingResponseBody> avatar(@PathVariable Long id) {
     return ImageResponses.stream(imageService.load(id));
   }
 
+  /** 清空数据库对象 Key，并清理对应 COS 对象。 */
   @DeleteMapping("/{id}/avatar")
   @PreAuthorize("hasAuthority('vet:manage')")
   public ApiResponse<Void> deleteAvatar(@PathVariable Long id) {

@@ -61,3 +61,6 @@ docs
 ai-md
 photos
 release
+*.txt
+*.docx
+*.pdf

@@ -75,6 +75,11 @@ public class PetController {
     return ApiResponse.message("删除成功");
   }
 
+  /**
+   * 接收前端 {@code FormData} 中名为 {@code file} 的字段。
+   *
+   * <p>此接口只接收浏览器上传，不让浏览器直接访问 COS；文件内容校验和对象 Key 生成均在后端完成。
+   */
   @Operation(summary = "上传或替换宠物照片")
   @PostMapping(path = "/{id}/photo", consumes = "multipart/form-data")
   @PreAuthorize("hasAuthority('pet:update') && hasAnyRole('ADMIN', 'STAFF')")
@@ -83,6 +88,11 @@ public class PetController {
     return ApiResponse.ok(petImageService.replace(id, file));
   }
 
+  /**
+   * 经 JWT 和业务权限校验后，把私有 COS 图片代理给浏览器。
+   *
+   * <p>响应体是图片二进制，不是 {@link ApiResponse} JSON。
+   */
   @Operation(summary = "读取宠物照片")
   @GetMapping("/{id}/photo")
   @PreAuthorize("hasAuthority('pet:manage')")
@@ -90,6 +100,7 @@ public class PetController {
     return ImageResponses.stream(petImageService.load(id));
   }
 
+  /** 清空数据库对象 Key，并清理对应 COS 对象。 */
   @Operation(summary = "删除宠物照片")
   @DeleteMapping("/{id}/photo")
   @PreAuthorize("hasAuthority('pet:update') && hasAnyRole('ADMIN', 'STAFF')")

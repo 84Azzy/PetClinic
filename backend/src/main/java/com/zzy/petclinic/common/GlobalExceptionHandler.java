@@ -58,11 +58,22 @@ public class GlobalExceptionHandler {
     return ResponseEntity.internalServerError().body(ApiResponse.error(500, "数据库查询失败"));
   }
 
+  /**
+   * 处理 Servlet multipart 层提前拒绝的大文件。
+   *
+   * <p>超限请求可能在进入 Controller 和 {@code ImageUploadValidator} 前就失败，因此需要在全局异常层单独转换为
+   * 统一的 413 响应。
+   */
   @ExceptionHandler(MaxUploadSizeExceededException.class)
   public ResponseEntity<ApiResponse<Void>> uploadTooLarge(MaxUploadSizeExceededException e) {
     return ResponseEntity.status(413).body(ApiResponse.error(413, "图片大小不能超过 5MB"));
   }
 
+  /**
+   * 将 COS SDK 的客户端错误或服务端错误隐藏为稳定的业务响应。
+   *
+   * <p>详细异常只写入服务端日志，避免把桶名、请求标识或 SDK 内部信息暴露给浏览器。
+   */
   @ExceptionHandler({CosClientException.class, CosServiceException.class})
   public ResponseEntity<ApiResponse<Void>> cosFailure(RuntimeException e) {
     log.error("COS request failed", e);

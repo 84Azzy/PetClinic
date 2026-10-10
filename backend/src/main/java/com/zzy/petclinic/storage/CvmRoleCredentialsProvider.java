@@ -17,6 +17,15 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 
+/**
+ * 从腾讯云 CVM 实例元数据服务获取 CAM 角色临时凭证。
+ *
+ * <p>生产环境无需在磁盘或环境变量中保存长期 SecretKey。CVM 绑定实例角色后，元数据服务会返回临时
+ * SecretId、SecretKey 和 Token，本提供器将它们交给 COS SDK，并在过期前五分钟主动刷新。
+ *
+ * <p>元数据地址只能从云服务器本机访问。此类只应在 {@code credential-mode=cvm-role} 时创建，不适用于开发者
+ * 电脑。
+ */
 public class CvmRoleCredentialsProvider implements COSCredentialsProvider {
   private static final Duration REFRESH_AHEAD = Duration.ofMinutes(5);
   private final String roleName;
@@ -30,6 +39,11 @@ public class CvmRoleCredentialsProvider implements COSCredentialsProvider {
     this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
   }
 
+  /**
+   * 返回仍可用的缓存凭证；接近过期时只允许一个线程刷新。
+   *
+   * <p>{@code volatile + synchronized} 的双重检查避免高并发图片请求同时访问元数据服务。
+   */
   @Override
   public COSCredentials getCredentials() {
     CachedCredentials current = cached;
@@ -44,11 +58,13 @@ public class CvmRoleCredentialsProvider implements COSCredentialsProvider {
     return current.credentials();
   }
 
+  /** 接受 COS SDK 的显式刷新请求，并立即替换缓存凭证。 */
   @Override
   public synchronized void refresh() {
     cached = fetchCredentials();
   }
 
+  /** 调用 CVM 元数据接口，校验结果并转换成 COS SDK 使用的会话凭证。 */
   private CachedCredentials fetchCredentials() {
     try {
       String encodedRole = URLEncoder.encode(roleName, StandardCharsets.UTF_8);
